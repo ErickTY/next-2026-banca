@@ -18,7 +18,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -244,8 +244,11 @@ def security_headers(res):
     return res
 
 def get_user():
-    uid = session.get("uid")
-    return one("banca_usuarios", id=uid) if uid else None
+    # Consulta apenas uma vez por requisição, evitando atrasos nos comandos.
+    if not hasattr(g, "_next_user"):
+        uid = session.get("uid")
+        g._next_user = one("banca_usuarios", id=uid) if uid else None
+    return g._next_user
 
 @app.context_processor
 def shared():
@@ -481,22 +484,27 @@ def api_state():
 @app.post("/admin/timers/<int:group>/<action>")
 @admin_required
 def update_timer(group, action):
-    get_team(group)
-    if action not in ("start","pause","resume","finish","reset","extend"):
+    # Evita a consulta remota de equipe: a RPC valida e bloqueia a linha
+    # no banco, e a competição tem precisamente os nove grupos.
+    if group not in range(1, 10) or action not in ("start", "pause", "resume", "finish", "reset", "extend"):
         abort(404)
-    reason = request.form.get("reason","").strip()
-    if action in ("reset","extend") and len(reason)<10:
-        flash("Justificativa obrigatória (mínimo de 10 caracteres).", "error")
+    async_request = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    reason = request.form.get("reason", "").strip()
+    if action in ("reset", "extend") and len(reason) < 10:
+        if async_request:
+            return jsonify(ok=False, error="Motivo obrigatório (mínimo 10 caracteres)."), 400
         return redirect(url_for("dashboard"))
     try:
-        rpc("banca_operar_tempo", {
+        result = rpc("banca_operar_tempo", {
             "p_equipe": group, "p_acao": action, "p_usuario": get_user().id,
             "p_motivo": reason[:400]
         })
     except SupabaseError as exc:
-        flash("Não foi possível alterar o cronômetro: " + str(exc), "error")
+        if async_request:
+            return jsonify(ok=False, error="Falha ao sincronizar o cronômetro. Tente novamente."), 503
         return redirect(url_for("dashboard"))
-    flash("Cronômetro do Grupo %02d: ação %s registrada."%(group,action),"success")
+    if async_request:
+        return jsonify(ok=True, team=group, action=action, result=result)
     return redirect(url_for("dashboard"))
 
 @app.post("/admin/teams/<int:group>/edit")
