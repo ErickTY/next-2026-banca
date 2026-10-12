@@ -18,7 +18,7 @@
     </div>
     <details class="login-manual">
       <summary>Outro identificador de acesso</summary>
-      <label for="quick-username">Login<input id="quick-username" name="username" autocomplete="username" required maxlength="40" placeholder="avaliador01" value="{{ request.form.get('username','') }}"></label>
+      <label for="quick-username">Login<input id="quick-username" name="username" autocomplete="username" maxlength="40" placeholder="avaliador01" value="{{ request.form.get('username','') }}"></label>
     </details>
     <label for="quick-password">Senha<input id="quick-password" name="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha" autofocus></label>
     <button class="primary login-submit" type="submit">Entrar para avaliar →</button>
