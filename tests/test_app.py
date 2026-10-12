@@ -106,3 +106,35 @@ def test_api_resultados_nega_avaliador(module,monkeypatch):
     c=module.app.test_client()
     assert c.get("/api/results").status_code==403
     assert c.get("/admin/results").status_code==403
+
+
+def test_ajax_timer_silencioso(module,monkeypatch):
+    from types import SimpleNamespace
+    admin=SimpleNamespace(id=1,role='admin',active=True,display_name='Coordenação')
+    monkeypatch.setattr(module,'get_user',lambda:admin)
+    monkeypatch.setattr(module,'rpc',lambda name,payload:{'estado':'idle','versao':1})
+    c=module.app.test_client()
+    c.get('/login')
+    with c.session_transaction() as sess:
+        csrf=sess['csrf_token']
+    for action in ('start','pause','resume','finish','reset'):
+        response=c.post('/admin/timers/1/'+action,
+            headers={'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+            data={'csrf_token':csrf,'reason':'Ajuste realizado pela coordenação'})
+        assert response.status_code==200
+        assert response.json['ok'] is True
+        assert 'Location' not in response.headers
+    with c.session_transaction() as sess:
+        assert not sess.get('_flashes')
+
+def test_ajax_reset_nega_avaliador(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,'get_user',lambda:SimpleNamespace(id=2,role='judge',active=True))
+    c=module.app.test_client()
+    c.get('/login')
+    with c.session_transaction() as sess:
+        csrf=sess['csrf_token']
+    response=c.post('/admin/timers/1/reset',
+        headers={'X-Requested-With':'XMLHttpRequest'},
+        data={'csrf_token':csrf,'reason':'Ajuste realizado pela coordenação'})
+    assert response.status_code==403
