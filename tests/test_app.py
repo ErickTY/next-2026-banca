@@ -273,3 +273,33 @@ def test_contingencia_exclusiva_para_admin(module,monkeypatch):
     assert c.post("/admin/historico/limpar",
          data={"csrf_token":csrf,"group":"all","confirmation":"APAGAR NOTAS",
                "password":"irrelevante"}).status_code==403
+
+
+def test_rpc_antiga_com_a4_retorna_orientacao_de_migracao(module, monkeypatch):
+    import io
+    import json
+    import pytest
+    from urllib.error import HTTPError
+    monkeypatch.setattr(module, "SUPABASE_URL", "https://iwfqmdsrourtdvrgiums.supabase.co")
+    monkeypatch.setattr(module, "SUPABASE_KEY", "sb_secret_test")
+    def fake_urlopen(request, timeout=12):
+        payload=json.dumps({"code":"P0001","message":"Observação inválida: A4"}).encode()
+        raise HTTPError(request.full_url,400,"RPC error",{},io.BytesIO(payload))
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    with pytest.raises(module.SupabaseError, match="A4"):
+        module.rpc("banca_salvar_avaliacao",{"p_equipe":1})
+
+
+def test_rpc_nao_encontrada_indica_migracao(module, monkeypatch):
+    import io
+    import json
+    import pytest
+    from urllib.error import HTTPError
+    monkeypatch.setattr(module, "SUPABASE_URL", "https://iwfqmdsrourtdvrgiums.supabase.co")
+    monkeypatch.setattr(module, "SUPABASE_KEY", "sb_secret_test")
+    def fake_urlopen(request, timeout=12):
+        payload=json.dumps({"code":"PGRST202","message":"Could not find the function public.banca_salvar_avaliacao in the schema cache"}).encode()
+        raise HTTPError(request.full_url,404,"Not found",{},io.BytesIO(payload))
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    with pytest.raises(module.SupabaseError, match="migração"):
+        module.rpc("banca_salvar_avaliacao",{"p_equipe":1})
