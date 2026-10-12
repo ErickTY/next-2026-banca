@@ -220,7 +220,7 @@ PROD = os.getenv("VERCEL", "").lower() in ("1", "true", "yes")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=PROD, PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
-    MAX_CONTENT_LENGTH=128 * 1024
+    MAX_CONTENT_LENGTH=10 * 1024 * 1024
 )
 if PROD:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -646,6 +646,9 @@ def audit_csv():
         writer.writerow([a["created_at"],a["usuario_id"],a["equipe_id"],a["evento"],a["detalhe"]])
     return Response("\ufeff"+output.getvalue(),mimetype="text/csv; charset=utf-8",
                     headers={"Content-Disposition":"attachment; filename=NEXT_2026_Auditoria.csv"})
+
+from manual_admin import install_manual_routes
+install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY)
 
 if __name__=="__main__":
     app.run(debug=not PROD, host="127.0.0.1",port=int(os.getenv("PORT","5000")))
