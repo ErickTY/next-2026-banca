@@ -1,3 +1,28 @@
-{% extends 'base.html' %}{% block title %}Entrar • NEXT 2026{% endblock %}{% block content %}
-<div class="loginwrap"><section class="panel loginpanel"><div class="eyebrow">PORTAL DA BANCA</div><h1>Avaliação técnica <span class="pink">NEXT 2026</span></h1><p class="muted">Acesso individual para coordenação e avaliadores. Notas e observações são registradas separadamente para cada equipe.</p><form method="post" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Identificador de acesso<input name="username" autocomplete="username" required autofocus placeholder="ex.: avaliador01"></label><label>Senha<input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha de acesso"></label><button class="primary" type="submit">Entrar no painel <span aria-hidden="true">↗</span></button></form><p class="hint">Não divulgue suas credenciais. Se precisar recuperar o acesso, procure a coordenação.</p></section></div>
+{% extends 'base.html' %}
+{% block title %}Acesso rápido • NEXT 2026{% endblock %}
+{% block content %}
+<div class="loginwrap"><section class="panel loginpanel login-fast">
+  <div class="eyebrow">PORTAL DA BANCA</div>
+  <h1>Entrar no <span class="pink">NEXT 2026</span></h1>
+  <p class="muted">Selecione seu perfil e digite somente sua senha. Cada avaliador registra sua própria ficha.</p>
+  <form method="post" class="stack" id="quick-login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="access-heading" for="quick-username">Quem vai avaliar?</label>
+    <div class="login-personas" role="group" aria-label="Selecionar usuário">
+      {% for n in range(1,6) %}
+      <button type="button" class="access-tile" data-login-user="avaliador{{ '%02d'|format(n) }}" aria-pressed="false">
+        <span class="access-icon">{{ '%02d'|format(n) }}</span><span>Avaliador {{ n }}</span>
+      </button>
+      {% endfor %}
+      <button type="button" class="access-tile admin-tile" data-login-user="coordenacao" aria-pressed="false"><span class="access-icon">★</span><span>Coordenação</span></button>
+    </div>
+    <details class="login-manual">
+      <summary>Outro identificador de acesso</summary>
+      <label for="quick-username">Login<input id="quick-username" name="username" autocomplete="username" required maxlength="40" placeholder="avaliador01" value="{{ request.form.get('username','') }}"></label>
+    </details>
+    <label for="quick-password">Senha<input id="quick-password" name="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha" autofocus></label>
+    <button class="primary login-submit" type="submit">Entrar para avaliar →</button>
+  </form>
+  <p class="hint">A senha é pessoal. Se estiver bloqueado, contate a coordenação. O botão de perfil substitui a digitação do usuário.</p>
+</section></div>
 {% endblock %}
