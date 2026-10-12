@@ -34,7 +34,25 @@ Se utilizar a chave legada service_role, use SUPABASE_SERVICE_ROLE_KEY em vez de
 - Avaliações individuais por usuário; persistência e pontuação no Supabase.
 - Cadastro de avaliadores, alteração de nomes, bloqueio de grupos e CSV.
 
-Os resultados são provisórios da arena, sem conversão automática em classificação final. Grupos 1 e 6 exigem confirmação dos nomes.
+Os resultados são provisórios da arena, sem conversão automática em classificação final. O nome do Grupo 1 é Datacore; o Grupo 6 ainda exige confirmação do nome.
+
+## Painel de classificação ao vivo e cronômetro (12/10/2026)
+
+- O **administrador** vê uma prévia do ranking no painel principal e a classificação completa em **/admin/results**.
+- O ranking mostra posição, média C1, média C2, média C3, média total de **0 a 15** e fichas recebidas / avaliadores ativos.
+- A página consulta **/api/results** a cada **3 segundos** enquanto estiver aberta, sem recarregamento.
+- A ordenação é pela **média das avaliações** (não soma). Empates recebem a mesma posição; grupos sem notas não são classificados.
+- Grupos com fichas ainda não recebidas aparecem como **Parcial**. O ranking é visível apenas para a coordenação.
+- O botão **Resetar 05:00** aparece só para o administrador, exige confirmação e verifica autorização no servidor e no Supabase.
+- Os avaliadores apenas visualizam o cronômetro: não podem iniciar, pausar, encerrar ou reiniciar.
+- Reiniciar o tempo não apaga notas ou usuários; a operação deixa registro de auditoria.
+
+### Migração GAVS-5 → Datacore no projeto Supabase já instalado
+
+Execute **somente** o SQL de [supabase/migrations/20261012_renomear_datacore.sql](supabase/migrations/20261012_renomear_datacore.sql) em Supabase → SQL Editor.
+Essa mudança é segura e idempotente; preserva todas as notas, os cronômetros e os usuários.
+O novo [schema.sql](supabase/schema.sql) já cria o Grupo 1 como **Datacore** em futuras instalações.
+**Não execute novamente o script de criação de usuários e senhas para esta atualização.**
 
 ## Segurança
 
