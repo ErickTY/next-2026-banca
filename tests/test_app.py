@@ -138,3 +138,33 @@ def test_ajax_reset_nega_avaliador(module,monkeypatch):
         headers={'X-Requested-With':'XMLHttpRequest'},
         data={'csrf_token':csrf,'reason':'Ajuste realizado pela coordenação'})
     assert response.status_code==403
+
+def test_senha_rapida_tem_dez_caracteres(module):
+    a=module.fast_password()
+    b=module.fast_password()
+    assert len(a)==10 and len(b)==10
+    assert a!=b
+    assert all(ch in 'abcdefghjkmnpqrstuvwxyz23456789' for ch in a)
+
+def test_avaliacao_rapida_pede_observacao_explicita_e_salva_sem_reload(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,'get_user',lambda:SimpleNamespace(id=7,role='judge',active=True))
+    monkeypatch.setattr(module,'get_team',lambda grp:SimpleNamespace(id=grp,locked=False))
+    saved=[]
+    monkeypatch.setattr(module,'rpc',lambda name,payload:saved.append((name,payload)))
+    c=module.app.test_client()
+    c.get('/login')
+    with c.session_transaction() as sess:
+        csrf=sess['csrf_token']
+    data={'csrf_token':csrf,'c1':'4','c2':'5','c3':'4','available':'2','used':'1',
+          'A1':'correto','A2':'correto','A3':'correto','A4':'correto','D1':'alerta'}
+    headers={'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
+    reject=c.post('/evaluate/1',data=data,headers=headers)
+    assert reject.status_code==400
+    assert saved==[]
+    data['D2']='alerta'
+    ok=c.post('/evaluate/1',data=data,headers=headers)
+    assert ok.status_code==200 and ok.json['ok'] is True
+    assert ok.json['total']==13
+    assert len(saved)==1 and saved[0][1]['p_equipe']==1
+    assert 'Location' not in ok.headers
