@@ -19,7 +19,7 @@ PARTICIPANTS=("A1","A2","A3","D1","D2")
 VALID={k:({"correto","erro","nao_testado"} if k.startswith("A") else
           {"alerta","falso_aceite","sem_leitura"}) for k in PARTICIPANTS}
 
-def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,secret_key):
+def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,secret_key,evaluator_label):
     signer=URLSafeTimedSerializer(app.config["SECRET_KEY"],salt="next-2026-manual-upload-v1")
     def storage(method,path,payload=None,content_type=None):
         if not base_url or not secret_key:raise RuntimeError("Supabase indisponivel")
@@ -55,7 +55,7 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
     @admin_required
     def manual_pdf():
         team,judge=pair(request.args.get("group"),request.args.get("judge"))
-        pdf=render_pdf(team.id,team.name,team.stand,judge.username,judge.display_name)
+        pdf=render_pdf(team.id,team.name,team.stand,judge.username,evaluator_label(judge))
         return Response(pdf,mimetype="application/pdf",headers={
             "Content-Disposition":f'attachment; filename="NEXT_2026_G{team.id:02d}_{judge.username}.pdf"',
             "Cache-Control":"no-store"})
@@ -68,7 +68,7 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
         with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as archive:
             for t in teams:
                 for u in people:
-                    pdf=render_pdf(t["id"],t["nome"],t["estande"],u["username"],u["nome_exibicao"])
+                    pdf=render_pdf(t["id"],t["nome"],t["estande"],u["username"],evaluator_label(type("Judge",(),{"username":u["username"],"display_name":u["nome_exibicao"]})()))
                     archive.writestr(f'Grupo_{t["id"]:02d}_{u["username"]}.pdf',pdf)
         return Response(output.getvalue(),mimetype="application/zip",headers={
             "Content-Disposition":'attachment; filename="NEXT_2026_Fichas_Offline.zip"',
@@ -113,6 +113,8 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
         team,judge=pair(request.form.get("group"),request.form.get("judge"))
         if team.id!=evidence["group"] or judge.id!=evidence["judge"]:
             return jsonify(ok=False,error="Avaliador, equipe e fotografia nao coincidem."),400
+        if request.form.get("verified")!="on":
+            return jsonify(ok=False,error="Confirme que revisou a fotografia e todas as marcacoes."),400
         obs={k:request.form.get(k) for k in PARTICIPANTS}
         if any(obs[k] not in VALID[k] for k in PARTICIPANTS):
             return jsonify(ok=False,error="Confira todos os cinco participantes."),400
