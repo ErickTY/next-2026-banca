@@ -290,7 +290,7 @@ def timer_view(t):
             "server_now": milliseconds(now()), "version": t.version}
 
 def init_admin():
-    if one("banca_usuarios", role="admin"):
+    if one("banca_usuarios", papel="admin"):
         return
     username = os.getenv("ADMIN_USERNAME", "coordenacao").strip().lower()
     password = os.getenv("ADMIN_PASSWORD", "")
@@ -302,7 +302,7 @@ def init_admin():
             "senha_hash": generate_password_hash(password)
         })
     except SupabaseError as exc:
-        if exc.status != 409 or not one("banca_usuarios", role="admin"):
+        if exc.status != 409 or not one("banca_usuarios", papel="admin"):
             raise
 
 @app.get("/health")
