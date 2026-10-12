@@ -6,7 +6,7 @@
     <a class="back" href="{{ url_for('dashboard') }}">← Equipes</a>
     <div class="eyebrow">FICHA INDIVIDUAL · GRUPO {{ '%02d'|format(team.id) }} · {{ team.stand }}</div>
     <h1>{{ team.name }} <span class="pink">/ Avaliação</span></h1>
-    <p class="muted quick-caption">Escolha as respostas observadas. Cada nota fica vinculada ao seu usuário.</p>
+    <div class="evaluator-identification" role="note"><span class="evaluator-id-label">VOCÊ ESTÁ AVALIANDO COMO</span><strong>{{ current_user_label }}</strong><small>Login: {{ current_user.username }} · Ficha vinculada à sua conta</small></div><p class="muted quick-caption">Escolha as respostas observadas. Cada nota fica vinculada ao seu usuário.</p>
   </div>
   <div class="timerbox mini quick-timer" aria-label="Cronômetro compartilhado">
     <div><small>CRONÔMETRO · CONTROLE DA COORDENAÇÃO</small>
