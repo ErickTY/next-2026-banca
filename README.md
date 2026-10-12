@@ -1,41 +1,69 @@
 # NEXT 2026 — Sistema de Avaliação da Banca
 
-Aplicação web de uso interno para o **Challenge DATEN | Microsoft Smart AI Vision**, com avaliação independente de nove equipes, cronômetro sincronizado de cinco minutos, auditoria e exportação CSV.
+Aplicação web responsiva para o Challenge DATEN | Microsoft Smart AI Vision (24/10/2026). Backend Flask no Vercel, dados no Supabase por HTTPS/Data API. Não há conexão PostgreSQL direta nem variável DATABASE_URL.
 
-## Deploy no Vercel
+## Configuração inicial (obrigatória)
 
-Este repositório é **independente**, com o projeto na raiz (`Root Directory: ./`, `Framework Preset: Flask`, branch `main`).
+1. No painel do Supabase, abra o projeto dedicado à banca (referência **iwfqmdsrourtdvrgiums**).
+2. Vá em SQL Editor → New Query, cole TODO o conteúdo de [supabase/schema.sql](supabase/schema.sql) e pressione Run. Isso cria cinco tabelas, as nove equipes, e duas funções RPC transacionais.
+3. Vá em Project Settings → API Keys e copie uma **Secret key** (sb_secret_) para uso exclusivo no servidor. Uma chave legada **service_role** também funciona. NUNCA use uma chave publishable/anon para o servidor nem publique a chave no GitHub.
+4. Em Vercel → next-2026-banca → Settings → Environment Variables, defina no ambiente Production:
 
-1. Conecte este repositório ao Vercel.
-2. Defina as variáveis `DATABASE_URL` (PostgreSQL persistente, conexão TLS), `SECRET_KEY` (segredo aleatório longo), `ADMIN_USERNAME` (p.ex. `coordenacao`) e `ADMIN_PASSWORD` (senha forte).
-3. Publique pelo Vercel e acesse `/health` para testar.
-4. Antes do NEXT, teste o login dos avaliadores, a persistência das notas, o cronômetro entre dois dispositivos e a exportação CSV.
+| Variável | Valor |
+|---|---|
+| SUPABASE_URL | https://iwfqmdsrourtdvrgiums.supabase.co |
+| SUPABASE_SECRET_KEY | chave privada do projeto Supabase |
+| SECRET_KEY | segredo aleatório com no mínimo 32 caracteres |
+| ADMIN_USERNAME | coordenacao |
+| ADMIN_PASSWORD | senha forte com no mínimo 12 caracteres |
 
-**Não use SQLite em produção no Vercel:** os dados não persistem no armazenamento efêmero das funções. Credenciais não devem ser publicadas no código. A conta admin só é criada na primeira inicialização do banco.
+Se utilizar a chave legada service_role, use SUPABASE_SERVICE_ROLE_KEY em vez de SUPABASE_SECRET_KEY.
+5. No Vercel, faça Deployments → Redeploy para incorporar as variáveis.
+6. Verifique [health](https://next-2026-banca.vercel.app/health). A resposta esperada é JSON contendo ok=true e backend=supabase-rest.
+7. Acesse a página /login com coordenacao e sua senha. A conta administrativa é criada automaticamente no primeiro login. Cadastre os avaliadores e repasse suas senhas por canal privado.
 
-As notas representam **somente a etapa de arena**; não correspondem automaticamente ao ranking definitivo. Os nomes dos grupos 1 e 6 estão provisórios, pendentes de confirmação.
+**Atenção:** A chave secreta Supabase só deve existir no ambiente protegido do Vercel. Não deve aparecer em GitHub, HTML, JavaScript ou mensagens. Os esquemas são instalados pelo SQL Editor uma vez; a aplicação usa só chamadas HTTPS à API do Supabase.
 
-## Uso local
+## Funcionalidades
 
-```bash
+- Nove grupos e estandes A22–A27 / A37–A39.
+- Identificação dos participantes A1–A4 e D1–D2.
+- Três critérios de 0 a 5, total 15 por avaliador.
+- Cronômetro de cinco minutos compartilhado e controlado pela coordenação.
+- Reinício e minuto extra somente com justificativa, registrado em auditoria.
+- Avaliações individuais por usuário; persistência e pontuação no Supabase.
+- Cadastro de avaliadores, alteração de nomes, bloqueio de grupos e CSV.
+
+Os resultados são provisórios da arena, sem conversão automática em classificação final. Grupos 1 e 6 exigem confirmação dos nomes.
+
+## Segurança
+
+- Supabase Data API usa segredo de servidor, jamais uma chave pública.
+- Tabelas com RLS ativado sem políticas públicas; somente service_role acessa.
+- RPCs restritas a service_role garantem atualização atômica do tempo e das avaliações.
+- Senhas com hash, cookies HTTPOnly, proteção CSRF e bloqueio temporário após tentativas malsucedidas.
+- Evite divulgar links administrativos antes da liberação oficial.
+
+## Execução local
+
+Instale Python 3.12 e use um ambiente virtual:
+
+~~~bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-export DATABASE_URL=sqlite:///local.db
-export SECRET_KEY=defina-uma-chave-de-desenvolvimento
-export ADMIN_USERNAME=coordenacao
-export ADMIN_PASSWORD=defina-uma-senha-de-desenvolvimento
+# Configure no terminal SUPABASE_URL, SUPABASE_SECRET_KEY, SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
 python app.py
-```
+~~~
 
-Abra http://127.0.0.1:5000. No PowerShell, troque `export VAR=valor` por `$env:VAR="valor"`.
+Abra http://localhost:5000. O ambiente local também usa o projeto Supabase (sem SQLite).
+Para rodar testes simulados da API, instale pytest e rode pytest -q.
 
-## Recursos
+## Solução de problemas
 
-- Nove grupos, posições A22–A27 e A37–A39
-- Login individual, testes A1–A4 e D1–D2, três critérios de 0 a 5
-- Cronômetros centralizados por grupo controlados pela coordenação
-- Cadastro de avaliadores, bloqueio de fichas, exportação e trilha de auditoria
-- Interface responsiva para celular e notebook
+- /health retorna HTTP 503 e menciona variáveis: complete os segredos no Vercel e faça Redeploy.
+- /health indica schema ausente: execute [supabase/schema.sql](supabase/schema.sql) no SQL Editor do projeto correto.
+- /login funciona, mas não salva: confirme as funções RPC e respectivas permissões; aguarde atualização do cache da API.
+- Teste com dois celulares, crie avaliadores, salve duas notas e exporte CSV antes do evento.
 
-**Uso exclusivo da equipe avaliadora; não divulgar credenciais aos alunos.**
+Fontes: [Supabase API Keys](https://supabase.com/docs/guides/getting-started/api-keys), [Supabase Data API](https://supabase.com/docs/guides/api), [Vercel Flask](https://vercel.com/docs/frameworks/backend/flask).
