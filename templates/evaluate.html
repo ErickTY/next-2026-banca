@@ -1,8 +1,122 @@
-{% extends 'base.html' %}{% block title %}Avaliar {{ team.name }} • NEXT 2026{% endblock %}{% block content %}
-<div class="heading"><div><a class="back" href="{{ url_for('dashboard') }}">← Voltar ao painel</a><div class="eyebrow">FICHA INDIVIDUAL · GRUPO {{ '%02d'|format(team.id) }}</div><h1>{{ team.name }} <span class="pink">· {{ team.stand }}</span></h1><p class="muted">Preencha somente o que foi efetivamente observado durante a rodada. Sua ficha é independente das demais.</p></div><div class="timerbox mini"><div><small>CRONÔMETRO COMPARTILHADO</small><div class="bigtime" data-timer="{{ team.id }}" data-timer-initial='{{ timer|tojson }}'>05:00</div></div><div data-timer-status="{{ team.id }}">Aguardando</div></div></div>
-{% if team.locked %}<div class="flash error">A coordenação bloqueou a edição das fichas deste grupo. Você pode consultar o registro abaixo.</div>{% endif %}
-<form class="eval-layout" action="{{ url_for('evaluate',group=team.id) }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-<section class="panel"><div class="eyebrow">01 / 03</div><h2>Registro dos participantes</h2><p class="muted">Marque o resultado individual dos quatro autorizados e dos dois desconhecidos.</p><div class="observations">{% for k in participants %}<label class="observer"><div class="tag {{ 'unknown' if k.startswith('D') else '' }}">{{ k }}</div><div class="persondesc">{{ 'Autorizado previamente cadastrado' if k.startswith('A') else ('Desconhecido • outra equipe' if k == 'D1' else 'Desconhecido • plateia') }}</div><select name="{{ k }}" {{ 'disabled' if team.locked else '' }} required>{% if k.startswith('A') %}{% for value,title in [('nao_testado','Não testado'),('correto','Reconhecido corretamente'),('erro','Erro / confusão')] %}<option value="{{ value }}" {{ 'selected' if obs.get(k,value if loop.first else '') == value else '' }}>{{ title }}</option>{% endfor %}{% else %}{% for value,title in [('sem_leitura','Não testado / sem leitura'),('alerta','Alerta correto'),('falso_aceite','Falso aceite')] %}<option value="{{ value }}" {{ 'selected' if obs.get(k,value if loop.first else '') == value else '' }}>{{ title }}</option>{% endfor %}{% endif %}</select></label>{% endfor %}</div></section>
-<section class="panel"><div class="eyebrow">02 / 03</div><h2>Pontuação</h2><p class="muted">Cada critério recebe nota inteira de 0 a 5 pontos. Total máximo: 15.</p>{% for idx,head,desc in [(1,'C1 • Autorizados','Identificação correta e consistente dos quatro cadastrados'),(2,'C2 • Não cadastrados','Alertas e rejeição de falsos aceites dos dois desconhecidos'),(3,'C3 • Operação e robustez','Execução na IA Box, vídeo ao vivo, estabilidade, tempo e uso eficiente das câmeras')] %}<fieldset class="criterion"><legend>{{ head }}</legend><p>{{ desc }}</p><div class="choices">{% for n in range(6) %}<label class="radiopt"><input type="radio" name="c{{ idx }}" value="{{ n }}" {{ 'checked' if evaluation and (evaluation.c1 if idx == 1 else evaluation.c2 if idx == 2 else evaluation.c3) == n else '' }} {{ 'disabled' if team.locked else '' }} required><span>{{ n }}</span></label>{% endfor %}</div></fieldset>{% endfor %}<p class="hint">0 = não demonstrou · 1 = muito insuficiente · 2 = insuficiente · 3 = adequado com ressalvas · 4 = bom · 5 = excelente.</p><div class="totalbar">TOTAL A SER REGISTRADO <strong id="score-total">{{ evaluation.total if evaluation else '—' }} / 15</strong></div></section>
-<section class="panel full"><div class="eyebrow">03 / 03</div><h2>Evidências e conclusão</h2><div class="cols2"><label>Câmeras disponibilizadas<select name="available" {{ 'disabled' if team.locked else '' }} required><option value="">Selecionar</option>{% for n in (1,2) %}<option value="{{ n }}" {{ 'selected' if evaluation and evaluation.cameras_available == n else '' }}>{{ n }}</option>{% endfor %}</select></label><label>Câmeras efetivamente utilizadas<select name="used" {{ 'disabled' if team.locked else '' }} required><option value="">Selecionar</option>{% for n in (1,2) %}<option value="{{ n }}" {{ 'selected' if evaluation and evaluation.cameras_used == n else '' }}>{{ n }}</option>{% endfor %}</select></label></div><label>Relato técnico / ocorrências<textarea name="notes" rows="5" maxlength="3000" {{ 'disabled' if team.locked else '' }} placeholder="Ex.: A2 reconhecido de forma intermitente, D1 tratado corretamente, stream instável; câmera 2 indisponível...">{{ evaluation.notes if evaluation else '' }}</textarea></label><p class="hint">Justificativa obrigatória se algum participante não foi testado, houve erro/falso aceite/sem leitura, ou alguma nota foi 0, 1 ou 2.</p><div class="eval-footer"><span class="muted">{{ 'Último registro salvo: ' + evaluation.updated_at.strftime('%d/%m/%Y %H:%M UTC') if evaluation else 'Ficha ainda não enviada' }}</span>{% if not team.locked %}<button class="primary" type="submit">Salvar minha avaliação →</button>{% endif %}</div></section></form>
+{% extends 'base.html' %}
+{% block title %}Avaliação rápida · {{ team.name }} · NEXT 2026{% endblock %}
+{% block content %}
+<div class="quick-heading">
+  <div>
+    <a class="back" href="{{ url_for('dashboard') }}">← Equipes</a>
+    <div class="eyebrow">FICHA INDIVIDUAL · GRUPO {{ '%02d'|format(team.id) }} · {{ team.stand }}</div>
+    <h1>{{ team.name }} <span class="pink">/ Avaliação</span></h1>
+    <p class="muted quick-caption">Escolha as respostas observadas. Cada nota fica vinculada ao seu usuário.</p>
+  </div>
+  <div class="timerbox mini quick-timer" aria-label="Cronômetro compartilhado">
+    <div><small>CRONÔMETRO · CONTROLE DA COORDENAÇÃO</small>
+      <div class="bigtime" data-timer="{{ team.id }}" data-timer-initial='{{ timer|tojson }}'>05:00</div>
+    </div>
+    <div data-timer-status="{{ team.id }}">Aguardando</div>
+  </div>
+</div>
+{% if team.locked %}<div class="flash error">A coordenação bloqueou a edição das avaliações deste grupo. Registro disponível apenas para consulta.</div>{% endif %}
+<form id="fast-evaluate" class="fast-eval" action="{{ url_for('evaluate',group=team.id) }}" method="post"
+      data-next-url="{{ url_for('evaluate',group=team.id+1) if team.id < 9 else url_for('dashboard') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="fast-eval-grid">
+    <section class="panel quick-participants" aria-labelledby="quick-people-title">
+      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 1</div><h2 id="quick-people-title">Detecção dos participantes</h2></div><span class="quick-counter" data-obs-count>0/6</span></div>
+      <p class="muted quick-hint">Marque um resultado para cada participante. Nenhuma opção é pré-selecionada.</p>
+      <div class="quick-people">
+        {% for k in participants %}
+        <fieldset class="quick-person" data-observation="{{ k }}">
+          <legend><span class="quick-tag {{ 'visitor' if k.startswith('D') else '' }}">{{ k }}</span>
+            <span>{{ 'Autorizado' if k.startswith('A') else ('Não cadastrado · outra equipe' if k == 'D1' else 'Não cadastrado · plateia') }}</span>
+          </legend>
+          <div class="quick-outcomes">
+            {% if k.startswith('A') %}
+              {% set choices = [('correto','✓ Correto','positive'),('erro','✕ Erro','negative'),('nao_testado','— Não testado','neutral')] %}
+            {% else %}
+              {% set choices = [('alerta','✓ Rejeitado','positive'),('falso_aceite','✕ Aceito indevidamente','negative'),('sem_leitura','— Não testado','neutral')] %}
+            {% endif %}
+            {% for val,label,tone in choices %}
+            <label class="quick-choice {{ tone }}">
+              <input type="radio" name="{{ k }}" value="{{ val }}"
+                     {{ 'checked' if obs.get(k)==val else '' }}
+                     {{ 'disabled' if team.locked else '' }} required>
+              <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel quick-scores" aria-labelledby="quick-score-title">
+      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 2</div><h2 id="quick-score-title">Pontuação</h2></div><span class="quick-counter" data-score-count>0/3</span></div>
+      <p class="muted quick-hint">Notas inteiras de 0 a 5. Toque no valor para selecionar.</p>
+      {% for idx,title,desc in [
+          (1,'C1 · Reconhecimento','Quatro participantes autorizados'),
+          (2,'C2 · Rejeição','Dois participantes não cadastrados'),
+          (3,'C3 · Robustez','IA Box, transmissão, estabilidade e câmeras')
+        ] %}
+      <fieldset class="quick-criterion">
+        <legend><strong>{{ title }}</strong><small>{{ desc }}</small></legend>
+        <div class="quick-score-options">
+          {% for n in range(6) %}
+          <label class="quick-score-option" data-level="{{ n }}">
+            <input type="radio" name="c{{ idx }}" value="{{ n }}"
+                   {{ 'checked' if evaluation and (evaluation.c1 if idx==1 else evaluation.c2 if idx==2 else evaluation.c3)==n else '' }}
+                   {{ 'disabled' if team.locked else '' }} required>
+            <span>{{ n }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endfor %}
+      <div class="quick-score-preview"><span>Total calculado</span><strong id="score-total">{{ evaluation.total if evaluation else '—' }} / 15</strong></div>
+      <p class="muted score-key">0 não demonstrou · 1 muito insuficiente · 2 insuficiente · 3 adequado · 4 bom · 5 excelente</p>
+    </section>
+    <section class="panel quick-details" aria-labelledby="quick-details-title">
+      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 3</div><h2 id="quick-details-title">Câmeras e ocorrências</h2></div></div>
+      <div class="quick-camera-grid">
+        <fieldset class="quick-criterion">
+          <legend><strong>Disponibilizadas</strong></legend>
+          <div class="quick-score-options">
+            {% for n in (1,2) %}
+            <label class="quick-score-option"><input type="radio" name="available" value="{{ n }}"
+              {{ 'checked' if evaluation and evaluation.cameras_available==n else '' }}
+              {{ 'disabled' if team.locked else '' }} required><span>{{ n }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <fieldset class="quick-criterion">
+          <legend><strong>Utilizadas</strong></legend>
+          <div class="quick-score-options">
+            {% for n in (1,2) %}
+            <label class="quick-score-option"><input type="radio" name="used" value="{{ n }}"
+              {{ 'checked' if evaluation and evaluation.cameras_used==n else '' }}
+              {{ 'disabled' if team.locked else '' }} required><span>{{ n }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      </div>
+      <div class="quick-notes-wrap">
+        <label for="quick-notes"><strong>Observações técnicas</strong><small data-notes-rule>Opcional quando todos os testes foram concluídos sem falhas e todas as notas são 3 ou mais.</small></label>
+        <textarea id="quick-notes" name="notes" rows="2" maxlength="3000"
+          {{ 'disabled' if team.locked else '' }}
+          placeholder="Anote falhas, testes pendentes, situações incomuns e evidências...">{{ evaluation.notes if evaluation else '' }}</textarea>
+      </div>
+    </section>
+  </div>
+  <div class="quick-submitbar">
+    <div class="quick-submitstate">
+      <strong id="quick-form-progress">Preencha os resultados e as notas</strong>
+      <span class="muted" id="quick-save-status" role="status" aria-live="polite">
+        {{ 'Último registro: ' + evaluation.updated_at.strftime('%d/%m/%Y %H:%M UTC') if evaluation else 'Ficha ainda não enviada' }}
+      </span>
+    </div>
+    {% if not team.locked %}
+      <button class="primary" type="submit" id="quick-save">Salvar avaliação <span aria-hidden="true">✓</span></button>
+    {% endif %}
+    <a href="{{ url_for('evaluate',group=team.id+1) if team.id < 9 else url_for('dashboard') }}"
+       class="outline quick-next-link" id="quick-next" hidden>{{ 'Próxima equipe →' if team.id < 9 else 'Voltar às equipes →' }}</a>
+  </div>
+</form>
 {% endblock %}
