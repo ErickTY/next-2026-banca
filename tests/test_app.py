@@ -214,3 +214,62 @@ def test_identificacao_nominal_dos_avaliadores(module):
     assert 'Avaliador 3 — Prof. Luiz (FIAP)' in login_page
     assert 'Avaliador 4 — Prof. Roberto (FIAP)' in login_page
     assert 'data-login-identity=' in login_page
+
+
+def test_formulario_impresso_e_leitura_otica_sem_ia_externa():
+    from io import BytesIO
+    from PIL import Image, ImageDraw
+    from manual_forms import CORNERS, ROWS, render_pdf, read_marks
+    pdf=render_pdf(1, "Datacore", "A22", "avaliador01", "Avaliador 1 DATEN")
+    assert pdf.startswith(b"%PDF-")
+    paper=Image.new("RGB",(1190,1684),"white")
+    drawing=ImageDraw.Draw(paper)
+    for x,y in CORNERS:
+        drawing.rectangle((2*(x-7),2*(842-y-7),2*(x+7),2*(842-y+7)),fill="black")
+    expected={"A1":"correto","A2":"erro","A3":"correto","D1":"alerta",
+              "D2":"falso_aceite","c1":4,"c2":3,"c3":5,"available":2,"used":1}
+    for field,opts,points in ROWS:
+        for i,(x,y) in enumerate(points):
+            px,py=2*x,2*(842-y)
+            drawing.ellipse((px-18,py-18,px+18,py+18),outline="black",width=2)
+            if opts[i]==expected[field]:
+                drawing.ellipse((px-10,py-10,px+10,py+10),fill="black")
+    binary=BytesIO();paper.save(binary,format="JPEG",quality=90)
+    result=read_marks(binary.getvalue())
+    assert result["recognized"]==10
+    assert result["warnings"]==[]
+    assert result["answers"]==expected
+
+
+def test_ficha_em_branco_nao_vira_avaliacao():
+    from io import BytesIO
+    from PIL import Image,ImageDraw
+    from manual_forms import CORNERS,ROWS,read_marks
+    paper=Image.new("RGB",(1190,1684),"white")
+    drawing=ImageDraw.Draw(paper)
+    for x,y in CORNERS:
+        drawing.rectangle((2*(x-7),2*(842-y-7),2*(x+7),2*(842-y+7)),fill="black")
+    for _,_,points in ROWS:
+        for x,y in points:
+            px,py=2*x,2*(842-y)
+            drawing.ellipse((px-18,py-18,px+18,py+18),outline="black",width=2)
+    binary=BytesIO();paper.save(binary,format="JPEG",quality=90)
+    result=read_marks(binary.getvalue())
+    assert result["recognized"]==0
+    assert all(v is None for v in result["answers"].values())
+
+
+def test_contingencia_exclusiva_para_admin(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,"get_user",lambda:SimpleNamespace(
+        id=12,username="avaliador01",role="judge",active=True,display_name="DATEN"
+    ))
+    c=module.app.test_client()
+    assert c.get("/admin/contingencia").status_code==403
+    assert c.get("/admin/contingencia/formularios.zip").status_code==403
+    assert c.get("/admin/contingencia/formulario.pdf?group=1&judge=2").status_code==403
+    c.get("/login")
+    with c.session_transaction() as s: csrf=s["csrf_token"]
+    assert c.post("/admin/historico/limpar",
+         data={"csrf_token":csrf,"group":"all","confirmation":"APAGAR NOTAS",
+               "password":"irrelevante"}).status_code==403
