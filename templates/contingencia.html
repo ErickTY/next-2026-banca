@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}Contingência e histórico · NEXT 2026{% endblock %}
+{% block content %}
+<div class="heading">
+  <div>
+    <a class="back" href="{{ url_for('dashboard') }}">← Voltar à coordenação</a>
+    <div class="eyebrow">ACESSO ADMINISTRATIVO · NEXT 2026</div>
+    <h1>Contingência <span class="pink">& histórico</span></h1>
+    <p class="muted">Imprima fichas para usar sem internet; depois fotografe, revise e registre as notas no mesmo ranking.</p>
+  </div>
+  <div class="toolbar"><a class="outline" href="{{ url_for('results_dashboard') }}">Ranking ao vivo →</a></div>
+</div>
+
+<div class="manual-workflow">
+  <section class="panel">
+    <div class="eyebrow">01 · ANTES DO EVENTO</div>
+    <h2>Exportar fichas de papel</h2>
+    <p class="muted">O PDF contém marcas para leitura automática. Imprima em tamanho A4, escala 100%, sem ajustar à página.</p>
+    <form class="stack" method="get" action="{{ url_for('manual_pdf') }}">
+      <label>Equipe
+        <select name="group" required>
+          {% for t in teams %}<option value="{{ t.id }}">Grupo {{ '%02d'|format(t.id) }} · {{ t.nome }} · {{ t.estande }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Avaliador
+        <select name="judge" required>
+          {% for u in judges %}<option value="{{ u.id }}">{{ evaluator_label(u|tojson) if false else (judge_profiles.get(u.username,u.nome_exibicao)) }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="primary">↓ Exportar ficha PDF individual</button>
+    </form>
+    <div class="manual-download-batch">
+      <a class="outline" href="{{ url_for('manual_all_forms') }}">↓ Baixar todas as fichas (ZIP)</a>
+      <small class="muted">Uma ficha por combinação de equipe e avaliador ativo.</small>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="eyebrow">02 · APÓS RESTABELECER A INTERNET</div>
+    <h2>Fotografar e reconhecer</h2>
+    <p class="muted">Escolha os mesmos grupo e avaliador impressos na ficha. Fotografe a folha inteira, sem cortar os quatro quadrados pretos.</p>
+    <form id="manual-scan" method="post" action="{{ url_for('manual_scan') }}" enctype="multipart/form-data" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Equipe impressa no papel
+        <select name="group" required>
+          {% for t in teams %}<option value="{{ t.id }}">Grupo {{ '%02d'|format(t.id) }} · {{ t.nome }} · {{ t.estande }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Avaliador que assinou
+        <select name="judge" required>
+          {% for u in judges %}<option value="{{ u.id }}">{{ judge_profiles.get(u.username,u.nome_exibicao) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Foto da ficha preenchida
+        <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" capture="environment" required>
+      </label>
+      <button class="primary" type="submit" id="manual-scan-button">Analisar fotografia →</button>
+    </form>
+    <p class="manual-state" id="manual-scan-status" aria-live="polite">A análise é uma sugestão. Nenhuma nota é computada nesta etapa.</p>
+    <img id="manual-preview" alt="Fotografia selecionada para conferência" hidden />
+  </section>
+</div>
+
+<section class="panel manual-review" id="manual-review" hidden>
+  <div class="eyebrow">03 · CONFERÊNCIA OBRIGATÓRIA</div>
+  <h2>Revisar antes de contabilizar</h2>
+  <p><strong id="manual-pair"></strong></p>
+  <p class="manual-state" id="manual-findings" role="status">Confira cada marcação lida com a fotografia.</p>
+  <form id="manual-confirm" method="post" action="{{ url_for('manual_confirm') }}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="token">
+    <input type="hidden" name="group">
+    <input type="hidden" name="judge">
+    <div class="manual-fields">
+      {% for name,options in [
+        ('A1',[('correto','Correto'),('erro','Erro'),('nao_testado','Não testado')]),
+        ('A2',[('correto','Correto'),('erro','Erro'),('nao_testado','Não testado')]),
+        ('A3',[('correto','Correto'),('erro','Erro'),('nao_testado','Não testado')]),
+        ('D1',[('alerta','Rejeitou'),('falso_aceite','Aceitou indevidamente'),('sem_leitura','Não testado')]),
+        ('D2',[('alerta','Rejeitou'),('falso_aceite','Aceitou indevidamente'),('sem_leitura','Não testado')])
+      ] %}
+        <label>{{ name }} · {{ 'Autorizado' if name.startswith('A') else 'Não cadastrado' }}
+          <select name="{{ name }}" required>
+            <option value="" selected>Revisar marcação</option>
+            {% for value,label in options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+      {% endfor %}
+      {% for criterion in (1,2,3) %}
+        <label>C{{ criterion }} · Nota
+          <select name="c{{ criterion }}" required>
+            <option value="" selected>Revisar nota</option>
+            {% for n in range(6) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+          </select>
+        </label>
+      {% endfor %}
+      {% for key,label in [('available','Câmeras disponíveis'),('used','Câmeras utilizadas')] %}
+        <label>{{ label }}
+          <select name="{{ key }}" required><option value="" selected>Revisar</option><option value="1">1</option><option value="2">2</option></select>
+        </label>
+      {% endfor %}
+    </div>
+    <label>Transcrição das observações do papel
+      <textarea name="notes" rows="3" maxlength="3000" placeholder="Registre especialmente falhas, testes não realizados e notas 0, 1 ou 2."></textarea>
+    </label>
+    <label class="manual-check"><input type="checkbox" name="verified" required> Conferi a fotografia, equipe, avaliador, cinco participantes e as três notas antes de contabilizar.</label>
+    <label class="manual-check"><input type="checkbox" name="replace" value="true" id="manual-replace"> Substituir avaliação anterior deste avaliador e equipe (apenas se necessário).</label>
+    <label id="manual-replace-wrap" hidden>Digite SUBSTITUIR para autorizar sobrescrita
+      <input name="replace_confirmation" placeholder="SUBSTITUIR">
+    </label>
+    <button class="primary" type="submit" id="manual-confirm-button">✓ Contabilizar avaliação revisada</button>
+    <p class="manual-state" id="manual-save-status" role="status" aria-live="polite"></p>
+  </form>
+</section>
+
+<section class="panel adminhistory">
+  <div class="eyebrow">MANUTENÇÃO ADMINISTRATIVA</div>
+  <h2>Limpar histórico de notas</h2>
+  <p class="muted">Remove notas do ranking de um grupo ou de todos, sem apagar usuários, cronômetros, fotografias nem registros de auditoria. Esta ação não pode ser desfeita automaticamente. Exporte o CSV antes.</p>
+  <a class="outline" href="{{ url_for('export_csv') }}">↓ Fazer backup CSV das notas</a>
+  <form method="post" action="{{ url_for('manual_clear_history') }}" class="manual-clear-form" data-confirm="Esta ação exclui notas do ranking. Você já exportou o backup?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Escopo da exclusão
+      <select name="group" required>
+        <option value="">Selecione...</option>
+        {% for t in teams %}<option value="{{ t.id }}">Somente Grupo {{ '%02d'|format(t.id) }} · {{ t.nome }}</option>{% endfor %}
+        <option value="all">TODAS AS NOTAS · 9 grupos</option>
+      </select>
+    </label>
+    <label>Senha da coordenação<input type="password" name="password" autocomplete="current-password" required></label>
+    <label>Confirmação por extenso<input name="confirmation" placeholder="APAGAR NOTAS" autocomplete="off" required></label>
+    <button type="submit" class="danger">Apagar notas selecionadas</button>
+  </form>
+</section>
+
+{% if recent %}
+<section class="panel">
+  <h2>Últimas fotos importadas</h2>
+  <div class="manual-history-list">
+    {% for item in recent %}
+      <div><span>Grupo {{ item.equipe_id }} · Avaliador ID {{ item.usuario_id }} · {{ item.total }}/15</span>
+        <a class="outline tiny" href="{{ url_for('manual_photo',import_id=item.id) }}" target="_blank" rel="noopener">Ver comprovante</a>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
