@@ -1,6 +1,17 @@
 {% extends 'base.html' %}{% block content %}
 <div class="heading"><div><div class="eyebrow">DESAFIO DATEN • ARENA</div><h1>Painel de <span class="pink">avaliação</span></h1><p class="muted">Nove equipes • 5 minutos por rodada • 3 critérios (0–5) • Notas independentes por avaliador</p></div>{% if user.role == 'admin' %}<div class="toolbar"><a class="primary" href="{{ url_for('results_dashboard') }}">🏆 Resultados ao vivo →</a><a class="outline" href="{{ url_for('export_csv') }}">↓ Exportar avaliações</a><a class="outline" href="{{ url_for('audit_csv') }}">↓ Auditoria</a></div>{% endif %}</div>
 <div class="stats"><div class="stat"><small>EQUIPES</small><b>09</b><span>FEV-2EC-PRES</span></div><div class="stat"><small>AVALIADORES ATIVOS</small><b>{{ judges | length }}</b><span>Logins individuais</span></div><div class="stat"><small>APRESENTAÇÃO NOS ESTANDES</small><b>12h–15h</b><span>Competição na arena: convocação separada</span></div><div class="stat"><small>RESULTADO</small><b>Provisório</b><span>Não equivale ao ranking final</span></div></div>
+{% if user.role == 'admin' %}
+<section class="panel results-preview">
+  <div class="sectiontitle">
+    <div><div class="eyebrow">RANKING DA ARENA · COORDENAÇÃO</div><h2>Classificação em tempo real</h2></div>
+    <a class="outline" href="{{ url_for('results_dashboard') }}">Abrir painel completo →</a>
+  </div>
+  <p class="muted">Média total de 0 a 15, por equipe. Notas ainda incompletas aparecem como parciais; empates são preservados.</p>
+  <div data-ranking-preview aria-live="off"><p class="muted">Carregando médias atuais...</p></div>
+  <p class="hint" data-rank-connect>Atualizando a cada 3 segundos · Somente coordenação</p>
+</section>
+{% endif %}
 <div class="sectiontitle"><h2>Equipes classificadas</h2><span class="muted">Atualização automática dos cronômetros a cada 2 s</span></div>
 <div class="teams">{% for row in rows %}<article class="team panel" data-team="{{ row.team.id }}"><div class="teamtop"><div><span class="num">GRUPO {{ '%02d'|format(row.team.id) }}</span><h3>{{ row.team.name }} {% if row.team.name_pending %}<span class="pending">a confirmar</span>{% endif %}</h3><small class="muted">Estande {{ row.team.stand }} · {{ row.count }} avaliações registradas</small></div><span class="pill {{ 'locked' if row.team.locked else '' }}">{{ 'Bloqueado' if row.team.locked else 'Aberto' }}</span></div>
 <div class="timerbox"><div><small class="muted">CRONÔMETRO COMPARTILHADO</small><div class="bigtime" data-timer="{{ row.team.id }}">05:00</div></div><div class="timerstatus" data-timer-status="{{ row.team.id }}">Aguardando</div></div>
