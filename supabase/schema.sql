@@ -212,7 +212,7 @@ begin
     if jsonb_typeof(p_obs) is distinct from 'object' then
         raise exception 'Observações inválidas';
     end if;
-    foreach _item in array array['A1','A2','A3','A4','D1','D2'] loop
+    foreach _item in array array['A1','A2','A3','D1','D2'] loop
         _valor := p_obs->>_item;
         if (_item like 'A%' and _valor not in ('correto','erro','nao_testado')) or
            (_item like 'D%' and _valor not in ('alerta','falso_aceite','sem_leitura')) or

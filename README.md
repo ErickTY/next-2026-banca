@@ -27,7 +27,7 @@ Se utilizar a chave legada service_role, use SUPABASE_SERVICE_ROLE_KEY em vez de
 ## Funcionalidades
 
 - Nove grupos e estandes A22–A27 / A37–A39.
-- Identificação dos participantes A1–A4 e D1–D2.
+- Identificação dos participantes A1–A3 e D1–D2.
 - Três critérios de 0 a 5, total 15 por avaliador.
 - Cronômetro de cinco minutos compartilhado e controlado pela coordenação.
 - Reinício e minuto extra somente com justificativa, registrado em auditoria.

@@ -29,10 +29,10 @@ TEAMS = [(1, "Datacore", "A22", False), (2, "OutBox", "A23", False),
          (5, "DataKeeper", "A26", False), (6, "Gamma", "A27", True),
          (7, "JPPN Tech", "A37", False), (8, "VisionAI", "A38", False),
          (9, "Argus", "A39", False)]
-PARTICIPANTS = ("A1", "A2", "A3", "A4", "D1", "D2")
+PARTICIPANTS = ("A1", "A2", "A3", "D1", "D2")
 VALID_OBS = {
-    **{x: {"correto", "erro", "nao_testado"} for x in PARTICIPANTS[:4]},
-    **{x: {"alerta", "falso_aceite", "sem_leitura"} for x in PARTICIPANTS[4:]}
+    **{x: {"correto", "erro", "nao_testado"} for x in PARTICIPANTS[:3]},
+    **{x: {"alerta", "falso_aceite", "sem_leitura"} for x in PARTICIPANTS[3:]}
 }
 
 def now():
@@ -476,7 +476,7 @@ def evaluate(group):
         # deve ser selecionado explicitamente pelo avaliador.
         obs = {k: request.form.get(k) for k in PARTICIPANTS}
         if any(obs[k] not in VALID_OBS[k] for k in PARTICIPANTS):
-            return invalid("Marque o resultado de todos os seis participantes.")
+            return invalid("Marque o resultado dos cinco participantes.")
 
         notes = request.form.get("notes", "").strip()[:3000]
         problems = any(
@@ -604,7 +604,7 @@ def export_csv():
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
     writer.writerow(["grupo","equipe","estande","avaliador","usuario","c1","c2","c3",
-                    "total","cameras_disponiveis","cameras_usadas","A1","A2","A3","A4",
+                    "total","cameras_disponiveis","cameras_usadas","A1","A2","A3",
                     "D1","D2","observacoes","atualizado_em_utc"])
     teams = {t["id"]:t for t in all_rows("banca_equipes")}
     users = {u["id"]:u for u in all_rows("banca_usuarios")}

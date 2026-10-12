@@ -132,11 +132,11 @@ function updateTotal(){
   const el=document.querySelector('#score-total');
   if(el)el.textContent=(sum===null?'—':sum)+' / 15';
   if(!fastForm)return;
-  const observations=['A1','A2','A3','A4','D1','D2'].map(k=>fastForm.querySelector('input[name="'+k+'"]:checked'));
+  const observations=['A1','A2','A3','D1','D2'].map(k=>fastForm.querySelector('input[name="'+k+'"]:checked'));
   const completed=observations.filter(Boolean).length;
   const scoresCompleted=selected.filter(Boolean).length;
   const obsCount=fastForm.querySelector('[data-obs-count]');
-  if(obsCount)obsCount.textContent=completed+'/6';
+  if(obsCount)obsCount.textContent=completed+'/5';
   const scoreCount=fastForm.querySelector('[data-score-count]');
   if(scoreCount)scoreCount.textContent=scoresCompleted+'/3';
 
@@ -150,9 +150,9 @@ function updateTotal(){
     notes.closest('.quick-notes-wrap')?.classList.toggle('needs-explanation',hasIssue);
   }
   if(notesRule)notesRule.textContent=hasIssue?'Obrigatória: descreva o motivo em pelo menos 10 caracteres.':'Opcional quando não houver falhas ou testes pendentes.';
-  const complete=completed===6&&scoresCompleted===3&&!!fastForm.querySelector('input[name="available"]:checked')&&!!fastForm.querySelector('input[name="used"]:checked');
+  const complete=completed===5&&scoresCompleted===3&&!!fastForm.querySelector('input[name="available"]:checked')&&!!fastForm.querySelector('input[name="used"]:checked');
   const progress=document.querySelector('#quick-form-progress');
-  if(progress)progress.textContent=complete?'Ficha preenchida · confira e salve':'Selecione 6 participantes, 3 notas e câmeras';
+  if(progress)progress.textContent=complete?'Ficha preenchida · confira e salve':'Selecione 5 participantes, 3 notas e câmeras';
 }
 function quickFormSignature(form){
   const d=new FormData(form);

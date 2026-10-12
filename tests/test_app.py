@@ -157,7 +157,7 @@ def test_avaliacao_rapida_pede_observacao_explicita_e_salva_sem_reload(module,mo
     with c.session_transaction() as sess:
         csrf=sess['csrf_token']
     data={'csrf_token':csrf,'c1':'4','c2':'5','c3':'4','available':'2','used':'1',
-          'A1':'correto','A2':'correto','A3':'correto','A4':'correto','D1':'alerta'}
+          'A1':'correto','A2':'correto','A3':'correto','D1':'alerta'}
     headers={'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
     reject=c.post('/evaluate/1',data=data,headers=headers)
     assert reject.status_code==400
@@ -168,3 +168,28 @@ def test_avaliacao_rapida_pede_observacao_explicita_e_salva_sem_reload(module,mo
     assert ok.json['total']==13
     assert len(saved)==1 and saved[0][1]['p_equipe']==1
     assert 'Location' not in ok.headers
+
+
+def test_exatamente_tres_autorizados_e_dois_desconhecidos(module,monkeypatch):
+    """A1, A2 e A3; D1 e D2. A4 não é mais obrigatório."""
+    from types import SimpleNamespace
+    assert module.PARTICIPANTS == ("A1", "A2", "A3", "D1", "D2")
+    assert "A4" not in module.PARTICIPANTS
+    monkeypatch.setattr(module, "get_user", lambda:SimpleNamespace(id=2, role="judge", active=True))
+    monkeypatch.setattr(module, "get_team", lambda grp:SimpleNamespace(id=grp, locked=False))
+    calls=[]
+    monkeypatch.setattr(module,"rpc",lambda name,data:calls.append((name,data)))
+    client=module.app.test_client()
+    client.get("/login")
+    with client.session_transaction() as ses:
+        csrf=ses["csrf_token"]
+    request_data={
+        "csrf_token":csrf, "c1":"5","c2":"5","c3":"4", "available":"2","used":"1",
+        "A1":"correto","A2":"correto","A3":"correto","D1":"alerta","D2":"alerta"
+    }
+    response=client.post("/evaluate/1", data=request_data,
+                         headers={"X-Requested-With":"XMLHttpRequest"})
+    assert response.status_code == 200
+    assert response.json["ok"] is True
+    assert list(calls[0][1]["p_obs"]) == ["A1","A2","A3","D1","D2"]
+    assert "A4" not in calls[0][1]["p_obs"]

@@ -21,7 +21,7 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="fast-eval-grid">
     <section class="panel quick-participants" aria-labelledby="quick-people-title">
-      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 1</div><h2 id="quick-people-title">Detecção dos participantes</h2></div><span class="quick-counter" data-obs-count>0/6</span></div>
+      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 1</div><h2 id="quick-people-title">Detecção dos participantes</h2></div><span class="quick-counter" data-obs-count>0/5</span></div>
       <p class="muted quick-hint">Marque um resultado para cada participante. Nenhuma opção é pré-selecionada.</p>
       <div class="quick-people">
         {% for k in participants %}
@@ -52,7 +52,7 @@
       <div class="quick-section-head"><div><div class="eyebrow">ETAPA 2</div><h2 id="quick-score-title">Pontuação</h2></div><span class="quick-counter" data-score-count>0/3</span></div>
       <p class="muted quick-hint">Notas inteiras de 0 a 5. Toque no valor para selecionar.</p>
       {% for idx,title,desc in [
-          (1,'C1 · Reconhecimento','Quatro participantes autorizados'),
+          (1,'C1 · Reconhecimento','Três participantes autorizados'),
           (2,'C2 · Rejeição','Dois participantes não cadastrados'),
           (3,'C3 · Robustez','IA Box, transmissão, estabilidade e câmeras')
         ] %}
