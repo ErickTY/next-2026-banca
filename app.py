@@ -272,7 +272,8 @@ def shared():
     return {"csrf_token": session["csrf_token"],
             "current_user": user,
             "current_user_label": evaluator_label(user),
-            "judge_profiles": JUDGE_IDENTITIES}
+            "judge_profiles": JUDGE_IDENTITIES,
+            "evaluator_label": evaluator_label}
 
 def login_required(fn):
     @wraps(fn)
@@ -628,7 +629,7 @@ def export_csv():
     users = {u["id"]:u for u in all_rows("banca_usuarios")}
     for e in all_rows("banca_avaliacoes", order="equipe_id.asc,usuario_id.asc"):
         t=teams[e["equipe_id"]]; u=users[e["usuario_id"]]; obs=e["observacoes"]
-        writer.writerow([t["id"], t["nome"], t["estande"], u["nome_exibicao"],u["username"],
+        writer.writerow([t["id"], t["nome"], t["estande"], evaluator_label(record(u)),u["username"],
                          e["c1"],e["c2"],e["c3"],e["c1"]+e["c2"]+e["c3"],
                          e["cameras_disponiveis"],e["cameras_usadas"],
                          *[obs.get(k,"") for k in PARTICIPANTS],e["notes"],e["updated_at"]])
