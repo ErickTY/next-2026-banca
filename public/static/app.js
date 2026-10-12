@@ -119,8 +119,129 @@ for(const form of document.querySelectorAll('form[data-timer-control]')){
     }
   });
 }
-function updateTotal(){const values=[1,2,3].map(i=>document.querySelector(`input[name="c${i}"]:checked`));const el=document.querySelector('#score-total');if(el)el.textContent=values.every(Boolean)?`${values.reduce((n,e)=>n+Number(e.value),0)} / 15`:'— / 15'}
-document.querySelectorAll('input[type="radio"]').forEach(x=>x.addEventListener('change',updateTotal));
+// Ficha rápida: três notas, seis observações e justificativa quando necessária.
+const fastForm=document.querySelector('#fast-evaluate');
+const fastSaveButton=document.querySelector('#quick-save');
+const quickSaveStatus=document.querySelector('#quick-save-status');
+const quickNext=document.querySelector('#quick-next');
+let saveInProgress=false;
+let savedSignature=null;
+function updateTotal(){
+  const selected=[1,2,3].map(i=>document.querySelector('input[name="c'+i+'"]:checked'));
+  const sum=selected.every(Boolean)?selected.reduce((n,e)=>n+Number(e.value),0):null;
+  const el=document.querySelector('#score-total');
+  if(el)el.textContent=(sum===null?'—':sum)+' / 15';
+  if(!fastForm)return;
+  const observations=['A1','A2','A3','A4','D1','D2'].map(k=>fastForm.querySelector('input[name="'+k+'"]:checked'));
+  const completed=observations.filter(Boolean).length;
+  const scoresCompleted=selected.filter(Boolean).length;
+  const obsCount=fastForm.querySelector('[data-obs-count]');
+  if(obsCount)obsCount.textContent=completed+'/6';
+  const scoreCount=fastForm.querySelector('[data-score-count]');
+  if(scoreCount)scoreCount.textContent=scoresCompleted+'/3';
+
+  const hasIssue=observations.some(x=>x&&['erro','nao_testado','falso_aceite','sem_leitura'].includes(x.value))||
+    selected.some(x=>x&&Number(x.value)<=2);
+  const notes=fastForm.elements.namedItem('notes');
+  const notesRule=fastForm.querySelector('[data-notes-rule]');
+  if(notes){
+    notes.required=hasIssue;
+    notes.minLength=hasIssue?10:0;
+    notes.closest('.quick-notes-wrap')?.classList.toggle('needs-explanation',hasIssue);
+  }
+  if(notesRule)notesRule.textContent=hasIssue?'Obrigatória: descreva o motivo em pelo menos 10 caracteres.':'Opcional quando não houver falhas ou testes pendentes.';
+  const complete=completed===6&&scoresCompleted===3&&!!fastForm.querySelector('input[name="available"]:checked')&&!!fastForm.querySelector('input[name="used"]:checked');
+  const progress=document.querySelector('#quick-form-progress');
+  if(progress)progress.textContent=complete?'Ficha preenchida · confira e salve':'Selecione 6 participantes, 3 notas e câmeras';
+}
+function quickFormSignature(form){
+  const d=new FormData(form);
+  return [...d.entries()].map(([k,v])=>k+'='+v).join('&');
+}
+if(fastForm){
+  fastForm.addEventListener('change',()=>{
+    updateTotal();
+    if(savedSignature!==null&&quickFormSignature(fastForm)!==savedSignature){
+      if(quickSaveStatus)quickSaveStatus.textContent='Alterações ainda não salvas';
+      if(quickNext)quickNext.hidden=true;
+    }
+  });
+  fastForm.addEventListener('input',()=>{
+    if(savedSignature!==null&&quickFormSignature(fastForm)!==savedSignature){
+      if(quickSaveStatus)quickSaveStatus.textContent='Alterações ainda não salvas';
+      if(quickNext)quickNext.hidden=true;
+    }
+  });
+  fastForm.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    updateTotal();
+    if(saveInProgress||!fastForm.reportValidity())return;
+    const used=Number(fastForm.querySelector('input[name="used"]:checked')?.value||0);
+    const available=Number(fastForm.querySelector('input[name="available"]:checked')?.value||0);
+    if(used>available){
+      if(quickSaveStatus)quickSaveStatus.textContent='As câmeras usadas não podem exceder as disponíveis.';
+      return;
+    }
+    saveInProgress=true;
+    if(fastSaveButton){fastSaveButton.disabled=true;fastSaveButton.textContent='Salvando...';}
+    if(quickSaveStatus)quickSaveStatus.textContent='Registrando avaliação...';
+    try{
+      const res=await fetch(fastForm.action,{
+        method:'POST',
+        body:new FormData(fastForm),
+        credentials:'same-origin',
+        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+        cache:'no-store'
+      });
+      if(res.redirected)throw Error('Sessão expirada. Entre novamente.');
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw Error(data.error||'Não foi possível salvar; tente novamente.');
+      savedSignature=quickFormSignature(fastForm);
+      if(quickSaveStatus)quickSaveStatus.textContent='✓ Avaliação salva · '+new Date(data.saved_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      if(quickNext)quickNext.hidden=false;
+    }catch(error){
+      if(quickSaveStatus)quickSaveStatus.textContent=error.message||'Erro de conexão. Tente novamente.';
+    }finally{
+      saveInProgress=false;
+      if(fastSaveButton){fastSaveButton.disabled=false;fastSaveButton.textContent='Salvar avaliação ✓';}
+    }
+  });
+}
+updateTotal();
+
+// Login visual: apenas selecionar o avaliador e informar sua senha.
+const quickLogin=document.querySelector('#quick-login');
+if(quickLogin){
+  const username=quickLogin.elements.namedItem('username');
+  const password=quickLogin.elements.namedItem('password');
+  const tiles=[...quickLogin.querySelectorAll('[data-login-user]')];
+  function selectQuickUser(name){
+    if(username)username.value=name;
+    for(const tile of tiles){
+      const active=tile.dataset.loginUser===name;
+      tile.classList.toggle('selected',active);
+      tile.setAttribute('aria-pressed',active?'true':'false');
+    }
+    if(password)password.focus();
+  }
+  for(const tile of tiles)tile.addEventListener('click',()=>selectQuickUser(tile.dataset.loginUser));
+  if(username&&username.value)selectQuickUser(username.value);
+  username?.addEventListener('input',()=>{
+    for(const tile of tiles){
+      const active=tile.dataset.loginUser===username.value;
+      tile.classList.toggle('selected',active);
+      tile.setAttribute('aria-pressed',active?'true':'false');
+    }
+  });
+  quickLogin.addEventListener('submit',event=>{
+    if(!username?.value){
+      event.preventDefault();
+      const details=username.closest('details');
+      if(details)details.open=true;
+      username.focus();
+    }
+  });
+}
 document.querySelectorAll('[data-confirm]').forEach(x=>x.addEventListener('click',e=>{if(!confirm(x.dataset.confirm))e.preventDefault()}));
 document.querySelector('[data-copy-credentials]')?.addEventListener('click',async e=>{const name=e.currentTarget.dataset.copyCredentials;const password=document.querySelector('#new-password')?.textContent||'';try{await navigator.clipboard.writeText(`NEXT 2026 — Acesso do avaliador\nUsuário: ${name}\nSenha: ${password}`);e.currentTarget.textContent='Dados copiados!'}catch{alert('Selecione e copie o identificador e a senha acima.')}});
 
