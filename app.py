@@ -24,7 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 log = logging.getLogger("next2026")
 
-TEAMS = [(1, "GAVS-5", "A22", True), (2, "OutBox", "A23", False),
+TEAMS = [(1, "Datacore", "A22", False), (2, "OutBox", "A23", False),
          (3, "Auditix AI", "A24", False), (4, "Next Level", "A25", False),
          (5, "DataKeeper", "A26", False), (6, "Gamma", "A27", True),
          (7, "JPPN Tech", "A37", False), (8, "VisionAI", "A38", False),
@@ -367,6 +367,71 @@ def dashboard():
         rows.append({"team":t, "timer":timer_view(timers[t.id]), "count":len(scores),
                      "average": round(sum(scores)/len(scores),2) if scores else None, "own":own})
     return render_template("dashboard.html", rows=rows, judges=judges, user=user)
+
+
+def build_ranking():
+    """Classificação provisória por média total / 15, com empates reais.
+
+    Equipes sem avaliações ficam no fim, sem posição. Grupos empatados
+    recebem a mesma posição; sem critério de desempate artificial.
+    """
+    teams = [record(t) for t in select("banca_equipes", order="id.asc")]
+    evaluations = all_rows("banca_avaliacoes")
+    active_judges = select("banca_usuarios", {"papel": "eq.judge", "ativo": "eq.true"})
+    expected = len(active_judges)
+    votes = {}
+    for e in evaluations:
+        votes.setdefault(e["equipe_id"], []).append(e)
+
+    rows = []
+    for t in teams:
+        group = votes.get(t.id, [])
+        count = len(group)
+        total = sum(e["c1"] + e["c2"] + e["c3"] for e in group)
+        sums = [sum(e[f"c{i}"] for e in group) for i in (1, 2, 3)]
+        rows.append({
+            "team_id": t.id, "name": t.name, "stand": t.stand,
+            "rank": None,
+            "evaluations": count,
+            "expected": expected,
+            "average": round(total / count, 2) if count else None,
+            "c1_average": round(sums[0] / count, 2) if count else None,
+            "c2_average": round(sums[1] / count, 2) if count else None,
+            "c3_average": round(sums[2] / count, 2) if count else None,
+            "locked": bool(t.locked),
+            "complete": count > 0 and (expected > 0 and count >= expected),
+            "_sum": total
+        })
+
+    # Comparison by cross-multiplication below avoids floating point ties.
+    rows.sort(key=lambda r: (not bool(r["evaluations"]),
+                            -(r["_sum"] / r["evaluations"]) if r["evaluations"] else 0,
+                            r["team_id"]))
+    last_scored = None
+    last_rank = None
+    for position, row in enumerate(rows, 1):
+        if row["evaluations"]:
+            if last_scored is None or row["_sum"] * last_scored["evaluations"] != last_scored["_sum"] * row["evaluations"]:
+                last_rank = position
+            row["rank"] = last_rank
+            last_scored = row
+        del row["_sum"]
+
+    return {"ranking": rows, "expected_judges": expected,
+            "updated_at": now().isoformat()}
+
+@app.get("/admin/results")
+@admin_required
+def results_dashboard():
+    return render_template("results.html", **build_ranking())
+
+@app.get("/api/results")
+@admin_required
+def api_results():
+    result = build_ranking()
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
 
 @app.route("/evaluate/<int:group>", methods=["GET", "POST"])
 @login_required
