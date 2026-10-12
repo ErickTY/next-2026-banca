@@ -292,6 +292,15 @@ def timer_view(t):
             "duration": t.duration_seconds, "started_at": milliseconds(t.started_at),
             "server_now": milliseconds(now()), "version": t.version}
 
+def fast_password(length=10):
+    """Senha individual fácil de digitar: 10 caracteres, sem símbolos ambíguos.
+
+    Alfabeto de 30 caracteres, aproximadamente 49 bits de entropia e
+    bloqueio temporário após cinco tentativas de login malsucedidas.
+    """
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
 def init_admin():
     if one("banca_usuarios", papel="admin"):
         return
@@ -441,39 +450,66 @@ def api_results():
 def evaluate(group):
     t = get_team(group)
     user = get_user()
+    async_request = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def invalid(message):
+        if async_request:
+            return jsonify(ok=False, error=message), 400
+        flash(message, "error")
+        return redirect(url_for("evaluate", group=group))
+
+    if request.method == "POST":
+        if t.locked:
+            return invalid("Edição bloqueada pela coordenação.")
+        try:
+            scores = [int(request.form.get("c%d" % i, "-1")) for i in (1, 2, 3)]
+            available = int(request.form.get("available", "-1"))
+            used = int(request.form.get("used", "-1"))
+        except (ValueError, TypeError):
+            return invalid("Preencha as três notas e a quantidade de câmeras.")
+        if not all(0 <= x <= 5 for x in scores):
+            return invalid("Cada nota deve estar entre 0 e 5.")
+        if not (1 <= used <= available <= 2):
+            return invalid("As câmeras utilizadas não podem exceder as disponíveis.")
+
+        # Não presumir detecção correta nem teste concluído: cada resultado
+        # deve ser selecionado explicitamente pelo avaliador.
+        obs = {k: request.form.get(k) for k in PARTICIPANTS}
+        if any(obs[k] not in VALID_OBS[k] for k in PARTICIPANTS):
+            return invalid("Marque o resultado de todos os seis participantes.")
+
+        notes = request.form.get("notes", "").strip()[:3000]
+        problems = any(
+            v in ("erro", "falso_aceite", "sem_leitura", "nao_testado")
+            for v in obs.values()
+        ) or min(scores) <= 2
+        if problems and len(notes) < 10:
+            return invalid("Explique em pelo menos 10 caracteres as falhas ou testes não realizados.")
+
+        try:
+            rpc("banca_salvar_avaliacao", {
+                "p_equipe": group, "p_usuario": user.id, "p_c1": scores[0],
+                "p_c2": scores[1], "p_c3": scores[2], "p_disponiveis": available,
+                "p_usadas": used, "p_obs": obs, "p_notas": notes
+            })
+        except SupabaseError:
+            if async_request:
+                return jsonify(ok=False, error="Não foi possível registrar a nota no Supabase. Tente novamente."), 503
+            raise
+
+        if async_request:
+            return jsonify(ok=True, team=group, total=sum(scores),
+                           saved_at=now().isoformat())
+        flash("Avaliação registrada.", "success")
+        return redirect(url_for("dashboard"))
+
     existing = one("banca_avaliacoes", equipe_id=group, usuario_id=user.id)
     if existing:
         existing.total = score(existing)
-    if request.method == "POST":
-        if t.locked:
-            abort(403, description="Avaliação bloqueada pela coordenação")
-        try:
-            scores = [int(request.form.get("c%d" % i, "-1")) for i in (1,2,3)]
-            available = int(request.form.get("available", "-1"))
-            used = int(request.form.get("used", "-1"))
-        except ValueError:
-            abort(400)
-        if not all(0 <= x <= 5 for x in scores) or not (1 <= used <= available <= 2):
-            flash("As notas vão de 0 a 5; selecione uma ou duas câmeras.", "error")
-            return redirect(url_for("evaluate", group=group))
-        obs = {k:request.form.get(k, "nao_testado" if k.startswith("A") else "sem_leitura") for k in PARTICIPANTS}
-        if any(obs[k] not in VALID_OBS[k] for k in PARTICIPANTS):
-            abort(400)
-        notes = request.form.get("notes", "").strip()[:3000]
-        problems = any(v in ("erro","falso_aceite","sem_leitura","nao_testado") for v in obs.values()) or min(scores)<=2
-        if problems and len(notes)<10:
-            flash("Descreva as falhas ou testes não realizados em pelo menos 10 caracteres.", "error")
-            return redirect(url_for("evaluate", group=group))
-        rpc("banca_salvar_avaliacao", {
-            "p_equipe": group, "p_usuario": user.id, "p_c1": scores[0],
-            "p_c2": scores[1], "p_c3": scores[2], "p_disponiveis": available,
-            "p_usadas": used, "p_obs": obs, "p_notas": notes
-        })
-        flash("Avaliação registrada. É possível editar até o bloqueio pela coordenação.", "success")
-        return redirect(url_for("dashboard"))
     return render_template("evaluate.html", team=t, evaluation=existing,
                            obs=existing.observations if existing else {},
                            timer=timer_view(get_timer(group)), participants=PARTICIPANTS)
+
 
 @app.get("/api/state")
 @login_required
@@ -536,7 +572,7 @@ def add_judge():
     if not 2 <= len(name) <= 120 or not re.fullmatch(r"[a-z0-9._-]{3,40}", username):
         flash("Identificador deve conter de 3 a 40 caracteres simples.", "error")
         return redirect(url_for("dashboard"))
-    password = secrets.token_urlsafe(24)
+    password = fast_password()
     try:
         insert("banca_usuarios", {
             "username":username, "nome_exibicao":name, "papel":"judge",
@@ -556,7 +592,7 @@ def reset_judge(uid):
         abort(404)
     if u.role!="judge":
         abort(403)
-    password = secrets.token_urlsafe(24)
+    password = fast_password()
     patch("banca_usuarios", {"senha_hash":generate_password_hash(password),
                           "falhas_login":0,"bloqueado_ate":None}, id=uid)
     log_event("judge_password_reset", detail=u.username)
