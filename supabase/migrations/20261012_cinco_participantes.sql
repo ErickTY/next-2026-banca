@@ -74,6 +74,7 @@ end;
 $$;
 revoke all on function public.banca_salvar_avaliacao(integer,bigint,integer,integer,integer,integer,integer,jsonb,text) from public,anon,authenticated;
 grant execute on function public.banca_salvar_avaliacao(integer,bigint,integer,integer,integer,integer,integer,jsonb,text) to service_role;
+NOTIFY pgrst, 'reload schema';
 commit;
 
 -- Dados anteriores não são removidos.
