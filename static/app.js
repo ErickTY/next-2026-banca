@@ -325,3 +325,92 @@ if(rankingBody||rankingPreview){
   pollRanking();
   setInterval(pollRanking,3000);
 }
+
+
+// CONTINGENCIA: fotografar ficha offline; ler bolinhas; confirmar manualmente.
+// A imagem e enviada ao Supabase Storage privado, nunca ha importacao automatica
+// sem confirmacao explicita da coordenacao.
+const scanForm=document.querySelector('#manual-scan');
+const confirmForm=document.querySelector('#manual-confirm');
+if(scanForm&&confirmForm){
+  const scanStatus=document.querySelector('#manual-scan-status');
+  const scanButton=document.querySelector('#manual-scan-button');
+  const preview=document.querySelector('#manual-preview');
+  const review=document.querySelector('#manual-review');
+  const findings=document.querySelector('#manual-findings');
+  const pair=document.querySelector('#manual-pair');
+  const saveStatus=document.querySelector('#manual-save-status');
+  const saveButton=document.querySelector('#manual-confirm-button');
+  const replaceCheckbox=document.querySelector('#manual-replace');
+  const replaceWrap=document.querySelector('#manual-replace-wrap');
+  let previewURL=null;
+  const setState=(node,value)=>{if(node)node.textContent=value;};
+  replaceCheckbox?.addEventListener('change',()=>{
+    if(replaceWrap)replaceWrap.hidden=!replaceCheckbox.checked;
+    const input=replaceWrap?.querySelector('input[name="replace_confirmation"]');
+    if(input)input.required=replaceCheckbox.checked;
+  });
+  scanForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const file=scanForm.querySelector('input[type="file"]')?.files?.[0];
+    if(!file){setState(scanStatus,'Selecione a fotografia da ficha.');return;}
+    if(file.size>8*1024*1024){setState(scanStatus,'Foto maior que 8 MB.');return;}
+    if(previewURL)URL.revokeObjectURL(previewURL);
+    previewURL=URL.createObjectURL(file);
+    if(preview){preview.src=previewURL;preview.hidden=false;}
+    if(review)review.hidden=true;
+    setState(scanStatus,'Analisando marcações e guardando comprovante...');
+    scanButton.disabled=true;
+    try{
+      const res=await fetch(scanForm.action,{
+        method:'POST',body:new FormData(scanForm),credentials:'same-origin',
+        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+        cache:'no-store'
+      });
+      if(res.redirected)throw Error('Sessão encerrada. Entre novamente.');
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok||!result.ok)throw Error(result.error||'Falha ao ler fotografia.');
+      confirmForm.reset();
+      for(const name of ['token','group','judge']){
+        const field=confirmForm.elements.namedItem(name);
+        if(field)field.value=name==='token'?result.token:scanForm.elements.namedItem(name)?.value||'';
+      }
+      for(const [key,val] of Object.entries(result.answers||{})){
+        if(val===null||val===undefined)continue;
+        const control=confirmForm.elements.namedItem(key);
+        if(control&&control.tagName==='SELECT')control.value=String(val);
+      }
+      if(replaceWrap)replaceWrap.hidden=true;
+      setState(pair,result.group+' · '+result.judge);
+      setState(findings,result.recognized+'/'+result.total+' campos reconhecidos. '+
+         (result.warnings?.length?'Revise manualmente: '+result.warnings.join('; '):'Todas as marcações foram lidas; confira visualmente antes de salvar.'));
+      setState(scanStatus,'Leitura concluída. Confira os campos antes de contabilizar.');
+      if(review){review.hidden=false;review.scrollIntoView({behavior:'smooth',block:'start'});}
+    }catch(err){
+      setState(scanStatus,err.message||'Falha ao analisar. Confira a internet e tente novamente.');
+    }finally{scanButton.disabled=false;}
+  });
+  confirmForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!confirmForm.reportValidity())return;
+    if(!confirm('Conferiu visualmente a fotografia e todos os campos antes de contabilizar?'))return;
+    saveButton.disabled=true;
+    setState(saveStatus,'Gravando avaliação no ranking...');
+    try{
+      const res=await fetch(confirmForm.action,{
+        method:'POST',body:new FormData(confirmForm),
+        credentials:'same-origin',cache:'no-store',
+        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
+      });
+      if(res.redirected)throw Error('Sessão expirada. Entre novamente.');
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok||!result.ok)throw Error(result.error||'Não foi possível contabilizar.');
+      setState(saveStatus,'✓ Nota '+result.total+'/15 de '+result.judge+
+         ' para '+result.group+' contabilizada no ranking. Comprovante salvo.');
+      saveButton.disabled=true; // impedir segunda importacao do mesmo comprovante
+    }catch(err){
+      setState(saveStatus,err.message||'Falha ao registrar. Confira a conexão.');
+      saveButton.disabled=false;
+    }
+  });
+}
