@@ -9,13 +9,16 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="access-heading" for="quick-username">Quem vai avaliar?</label>
     <div class="login-personas" role="group" aria-label="Selecionar usuário">
-      {% for n in range(1,6) %}
-      <button type="button" class="access-tile" data-login-user="avaliador{{ '%02d'|format(n) }}" aria-pressed="false">
-        <span class="access-icon">{{ '%02d'|format(n) }}</span><span>Avaliador {{ n }}</span>
+      {% for username, identity in judge_profiles.items() %}
+      <button type="button" class="access-tile" data-login-user="{{ username }}" data-login-identity="{{ identity }}" aria-pressed="false">
+        <span class="access-icon">{{ '%02d'|format(loop.index) }}</span>
+        <span class="access-name">Avaliador {{ loop.index }}</span>
+        <small class="access-affiliation">{{ identity.split(' — ', 1)[1] if ' — ' in identity else identity }}</small>
       </button>
       {% endfor %}
-      <button type="button" class="access-tile admin-tile" data-login-user="coordenacao" aria-pressed="false"><span class="access-icon">★</span><span>Coordenação</span></button>
+      <button type="button" class="access-tile admin-tile" data-login-user="coordenacao" data-login-identity="Coordenação" aria-pressed="false"><span class="access-icon">★</span><span>Coordenação</span></button>
     </div>
+    <p class="selected-access-name" id="selected-access-name" role="status" aria-live="polite">Selecione seu nome antes de informar a senha.</p>
     <details class="login-manual">
       <summary>Outro identificador de acesso</summary>
       <label for="quick-username">Login<input id="quick-username" name="username" autocomplete="username" maxlength="40" placeholder="avaliador01" value="{{ request.form.get('username','') }}"></label>
