@@ -157,19 +157,54 @@ def call(method, path, params=None, payload=None, prefer=None):
             raw = res.read()
             return json.loads(raw) if raw else None
     except HTTPError as exc:
+        # Supabase/PostgREST devolve SQLSTATE e uma mensagem específica.
+        # Identificamos problemas comuns sem enviar detalhes do banco aos alunos.
+        detail = {}
         try:
-            detail = json.loads(exc.read().decode("utf-8", "replace"))
-            code = detail.get("code", "") if isinstance(detail, dict) else ""
-        except Exception:
-            code = ""
-        log.error("Supabase REST %s %s: HTTP %s code=%s", method, path, exc.code, code)
+            parsed = json.loads(exc.read().decode("utf-8", "replace"))
+            if isinstance(parsed, dict):
+                detail = parsed
+        except (ValueError, TypeError, UnicodeDecodeError):
+            pass
+        code = str(detail.get("code") or "")
+        backend_message = str(detail.get("message") or "")
+        normalized = backend_message.lower()
+        log.error(
+            "Supabase REST falhou: method=%s endpoint=%s http=%s sqlstate=%s message=%s",
+            method, path, exc.code, code, backend_message[:180]
+        )
         if exc.code in (401, 403):
-            raise SupabaseError("Chave Supabase inválida ou sem permissão")
-        if exc.code == 404 or code in ("42P01", "PGRST205", "PGRST202"):
-            raise SupabaseError("Estrutura Supabase ausente: execute supabase/schema.sql no SQL Editor")
+            raise SupabaseError("Acesso ao Supabase não autorizado. A coordenação deve conferir a chave privada no Vercel.")
+        if code == "PGRST202" or "could not find the function" in normalized:
+            raise SupabaseError(
+                "A função de avaliação não foi encontrada no Supabase. "
+                "A coordenação deve executar a migração dos cinco participantes."
+            )
+        if "a4" in normalized and ("inválida" in normalized or "invalida" in normalized
+                                 or "invalid" in normalized or "observation" in normalized):
+            raise SupabaseError(
+                "O Supabase ainda exige A4, mas a ficha atual possui cinco participantes. "
+                "Execute a migração 20261012_cinco_participantes.sql no Supabase."
+            )
+        if "observação inválida" in normalized or "observacao invalida" in normalized:
+            raise SupabaseError(
+                "A função de avaliação no Supabase está desatualizada. "
+                "A coordenação deve executar a migração dos cinco participantes."
+            )
+        if "bloqueada" in normalized or "bloqueado" in normalized:
+            raise SupabaseError("A avaliação desta equipe está bloqueada pela coordenação.")
+        if "justifique" in normalized or "justificativa" in normalized:
+            raise SupabaseError("Informe pelo menos 10 caracteres justificando falhas ou notas insuficientes.")
+        if code in ("42P01", "PGRST205") or exc.code == 404:
+            raise SupabaseError("Estrutura de avaliação ausente no Supabase. A coordenação deve conferir as migrações.")
+        if code == "42501" or "permission denied" in normalized:
+            raise SupabaseError("Permissão insuficiente no Supabase. A coordenação deve conferir a chave de servidor.")
         if exc.code == 409:
-            raise SupabaseError("Registro em conflito", 409)
-        raise SupabaseError("Falha no acesso ao Supabase (HTTP %d; %s)" % (exc.code, code))
+            raise SupabaseError("Conflito ao gravar a avaliação. Atualize a ficha e tente novamente.", 409)
+        raise SupabaseError(
+            "Supabase recusou a gravação (código %s). Avise a coordenação." %
+            (code or str(exc.code))
+        )
     except (URLError, TimeoutError) as exc:
         log.error("Conexão Supabase indisponível: %s", type(exc).__name__)
         raise SupabaseError("Não foi possível conectar à API do Supabase")
@@ -511,9 +546,9 @@ def evaluate(group):
                 "p_c2": scores[1], "p_c3": scores[2], "p_disponiveis": available,
                 "p_usadas": used, "p_obs": obs, "p_notas": notes
             })
-        except SupabaseError:
+        except SupabaseError as exc:
             if async_request:
-                return jsonify(ok=False, error="Não foi possível registrar a nota no Supabase. Tente novamente."), 503
+                return jsonify(ok=False, error=str(exc)), exc.status
             raise
 
         if async_request:
