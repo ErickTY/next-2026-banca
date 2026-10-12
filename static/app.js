@@ -215,23 +215,32 @@ if(quickLogin){
   const username=quickLogin.elements.namedItem('username');
   const password=quickLogin.elements.namedItem('password');
   const tiles=[...quickLogin.querySelectorAll('[data-login-user]')];
+  const selectedIdentity=document.querySelector('#selected-access-name');
   function selectQuickUser(name){
     if(username)username.value=name;
+    const chosen=tiles.find(tile=>tile.dataset.loginUser===name);
     for(const tile of tiles){
       const active=tile.dataset.loginUser===name;
       tile.classList.toggle('selected',active);
       tile.setAttribute('aria-pressed',active?'true':'false');
     }
+    if(selectedIdentity)selectedIdentity.textContent=chosen
+      ?'Selecionado: '+chosen.dataset.loginIdentity
+      :'Login informado: '+name;
     if(password)password.focus();
   }
   for(const tile of tiles)tile.addEventListener('click',()=>selectQuickUser(tile.dataset.loginUser));
   if(username&&username.value)selectQuickUser(username.value);
   username?.addEventListener('input',()=>{
+    const chosen=tiles.find(tile=>tile.dataset.loginUser===username.value);
     for(const tile of tiles){
       const active=tile.dataset.loginUser===username.value;
       tile.classList.toggle('selected',active);
       tile.setAttribute('aria-pressed',active?'true':'false');
     }
+    if(selectedIdentity)selectedIdentity.textContent=chosen
+      ?'Selecionado: '+chosen.dataset.loginIdentity
+      :(username.value?'Login informado: '+username.value:'Selecione seu nome antes de informar a senha.');
   });
   quickLogin.addEventListener('submit',event=>{
     if(!username?.value){
