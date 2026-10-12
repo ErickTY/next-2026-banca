@@ -158,3 +158,31 @@
 .evaluator-id-label{letter-spacing:1.2px;font-size:10px;color:#ff8ab1;font-weight:900}
 .evaluator-dashboard-banner{margin:0 0 22px}
 @media(max-width:640px){.user-identity{max-width:43vw;font-size:11px}.access-tile{min-height:99px;padding:10px 4px}.access-affiliation{font-size:10px}.evaluator-identification strong,.evaluator-dashboard-banner strong{font-size:15px}}
+
+
+/* NEXT 2026: operações administrativas e contingência em papel. */
+.manual-workflow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start;margin:20px 0}
+.manual-workflow .panel{height:100%}
+.manual-workflow .stack{margin-top:18px;gap:13px}
+.manual-workflow input[type=file]{display:block;width:100%;background:#11151d;border:1px dashed #63687a;padding:14px;margin-top:8px;border-radius:8px}
+.manual-download-batch{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px}
+.manual-download-batch small{display:block;flex:1;min-width:190px}
+.manual-state{color:#eeb8d0;font-size:13px;line-height:1.6;margin-top:12px;white-space:pre-wrap}
+#manual-preview{display:block;width:100%;max-height:440px;object-fit:contain;border-radius:10px;margin-top:12px;background:#080a10;border:1px solid #44485b}
+#manual-preview[hidden],.manual-review[hidden],#manual-replace-wrap[hidden]{display:none!important}
+.manual-review{border-color:#b04a78;margin:19px 0}
+.manual-review .manual-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:13px 0}
+.manual-review label{font-size:13px;font-weight:650}
+.manual-review label select{margin-top:6px;min-height:42px;width:100%}
+.manual-review textarea{min-height:100px;margin:9px 0}
+.manual-check{display:flex;align-items:start;gap:9px;padding:9px 0;font-size:13px!important;font-weight:500!important}
+.manual-check input{margin-top:3px;width:17px;height:17px;flex:0 0 auto}
+.manual-review button.primary{min-height:48px;margin-top:6px}
+.adminhistory{margin:22px 0;border-color:#7f3950}
+.adminhistory .manual-clear-form{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;align-items:end;margin-top:20px}
+.adminhistory .manual-clear-form label{font-size:13px}
+.adminhistory .manual-clear-form button{grid-column:1/-1;justify-self:start}
+.adminhistory .outline{margin:10px 0}
+.manual-history-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+@media(max-width:920px){.manual-workflow{grid-template-columns:1fr}.manual-review .manual-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.adminhistory .manual-clear-form{grid-template-columns:1fr}.manual-review .manual-fields{grid-template-columns:1fr 1fr}.manual-workflow .panel{padding:16px}.manual-history-list>div{align-items:start;flex-direction:column}}
