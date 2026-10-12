@@ -16,6 +16,7 @@ document.querySelector('[data-copy-credentials]')?.addEventListener('click',asyn
 // Quadro de classificação: consultas autenticadas a cada 3 segundos.
 // Nenhuma senha ou chave Supabase é enviada ao navegador.
 const rankingBody=document.querySelector('[data-ranking-body]');
+const rankingPreview=document.querySelector('[data-ranking-preview]');
 let rankingRequestActive=false;
 function formatAverage(value){
   return typeof value==='number'&&Number.isFinite(value) ? value.toFixed(2).replace('.',',') : '—';
@@ -25,14 +26,14 @@ function rankCell(tr,selector,value){
   if(node)node.textContent=String(value);
 }
 async function pollRanking(){
-  if(!rankingBody||rankingRequestActive)return;
+  if((!rankingBody&&!rankingPreview)||rankingRequestActive)return;
   rankingRequestActive=true;
   const state=document.querySelector('[data-rank-connect]');
   try{
     const res=await fetch('/api/results',{credentials:'same-origin',cache:'no-store'});
     if(!res.ok)throw Error(res.status===403||res.redirected?'Sessão expirada. Entre novamente.':'Não foi possível atualizar o ranking.');
     const data=await res.json();
-    for(const item of data.ranking){
+    if(rankingBody){for(const item of data.ranking){
       const tr=rankingBody.querySelector('[data-ranking-team="'+item.team_id+'"]');
       if(!tr)continue;
       rankCell(tr,'[data-rank]',item.rank===null?'—':item.rank+'º');
@@ -49,6 +50,24 @@ async function pollRanking(){
       if(bar)bar.value=item.average===null?0:item.average;
       tr.classList.toggle('no-score',item.evaluations===0);
       rankingBody.appendChild(tr); // Mantém a ordem calculada pelo servidor.
+    }}
+    if(rankingPreview){
+      const fragment=document.createDocumentFragment();
+      for(const item of data.ranking){
+        const row=document.createElement('div');
+        row.className='preview-row'+(!item.evaluations?' no-score':'');
+        const rank=document.createElement('strong');
+        rank.textContent=item.rank===null?'—':item.rank+'º';
+        const name=document.createElement('span');
+        name.textContent=item.name+' · '+item.stand;
+        const mean=document.createElement('b');
+        mean.textContent=formatAverage(item.average)+' / 15';
+        const votes=document.createElement('small');
+        votes.textContent=item.evaluations+' / '+item.expected+' fichas';
+        row.append(rank,name,mean,votes);
+        fragment.appendChild(row);
+      }
+      rankingPreview.replaceChildren(fragment);
     }
     rankCell(document,'[data-expected-judges]',data.expected_judges);
     const stamp=document.querySelector('[data-ranking-updated]');
@@ -60,7 +79,7 @@ async function pollRanking(){
     rankingRequestActive=false;
   }
 }
-if(rankingBody){
+if(rankingBody||rankingPreview){
   pollRanking();
   setInterval(pollRanking,3000);
 }
