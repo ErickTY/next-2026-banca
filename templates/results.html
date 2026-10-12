@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Resultados ao vivo • NEXT 2026{% endblock %}
+{% block content %}
+<div class="heading">
+  <div>
+    <a class="back" href="{{ url_for('dashboard') }}">← Voltar ao painel da coordenação</a>
+    <div class="eyebrow">CHALLENGE DATEN · ARENA FINAL · ADMINISTRAÇÃO</div>
+    <h1>Classificação <span class="pink">ao vivo</span></h1>
+    <p class="muted">Média das fichas registradas por grupo, atualizada automaticamente a cada 3 segundos. Critérios C1, C2 e C3 com notas de 0 a 5, total máximo de 15 pontos.</p>
+  </div>
+  <div class="toolbar">
+    <a class="outline" href="{{ url_for('export_csv') }}">↓ Exportar fichas</a>
+    <a class="outline" href="{{ url_for('dashboard') }}">Cronômetros e equipes →</a>
+  </div>
+</div>
+<div class="results-summary">
+  <div class="stat"><small>GRUPOS CLASSIFICADOS</small><b>09</b><span>Ranking da arena</span></div>
+  <div class="stat"><small>AVALIADORES ATIVOS</small><b data-expected-judges>{{ expected_judges }}</b><span>Quantidade esperada por grupo</span></div>
+  <div class="stat"><small>ATUALIZAÇÃO</small><b class="live-text"><span class="live-dot"></span> Ao vivo</b><span data-ranking-updated>Sincronização automática</span></div>
+</div>
+<section class="panel results-panel">
+  <div class="sectiontitle">
+    <h2>Ranking provisório</h2>
+    <span class="muted" data-rank-connect role="status" aria-live="polite">Dados recebidos do Supabase</span>
+  </div>
+  <div class="results-scroller">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Posição</th><th>Equipe / estande</th><th>C1 média</th><th>C2 média</th><th>C3 média</th><th>Média final</th><th>Fichas</th><th>Situação</th>
+        </tr>
+      </thead>
+      <tbody data-ranking-body>
+        {% for item in ranking %}
+        <tr data-ranking-team="{{ item.team_id }}" class="{{ 'no-score' if not item.evaluations else '' }}">
+          <td><strong data-rank>{{ item.rank ~ 'º' if item.rank else '—' }}</strong></td>
+          <td><strong data-team-name>{{ item.name }}</strong><small data-stand>Grupo {{ '%02d'|format(item.team_id) }} · {{ item.stand }}</small></td>
+          <td data-c1>{{ '%.2f'|format(item.c1_average)|replace('.', ',') if item.c1_average is not none else '—' }}</td>
+          <td data-c2>{{ '%.2f'|format(item.c2_average)|replace('.', ',') if item.c2_average is not none else '—' }}</td>
+          <td data-c3>{{ '%.2f'|format(item.c3_average)|replace('.', ',') if item.c3_average is not none else '—' }}</td>
+          <td class="avg-col">
+            <strong data-average>{{ '%.2f'|format(item.average)|replace('.', ',') if item.average is not none else '—' }}</strong><small> / 15</small>
+            <progress max="15" value="{{ item.average if item.average is not none else 0 }}" data-bar aria-label="Progresso da pontuação"></progress>
+          </td>
+          <td data-votes>{{ item.evaluations }} / {{ item.expected }}</td>
+          <td><span class="result-status" data-completeness>{{ 'Sem avaliações' if not item.evaluations else ('Todas recebidas' if item.complete else 'Parcial') }}</span>{% if item.locked %}<small class="result-locked" data-lock>Notas bloqueadas</small>{% else %}<small class="result-locked" data-lock></small>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="results-footnote">**Critério de classificação:** média aritmética dos totais registrados (C1 + C2 + C3) por equipe. Empates recebem a mesma posição; grupos sem avaliação não recebem posição. Com quantidades diferentes de fichas, os resultados permanecem provisórios. Este quadro é reservado à coordenação e <strong>não determina sozinho o ranking final do NEXT.</strong></p>
+</section>
+{% endblock %}
