@@ -31,7 +31,7 @@ async function pollRanking(){
   const state=document.querySelector('[data-rank-connect]');
   try{
     const res=await fetch('/api/results',{credentials:'same-origin',cache:'no-store'});
-    if(!res.ok)throw Error(res.status===403||res.redirected?'Sessão expirada. Entre novamente.':'Não foi possível atualizar o ranking.');
+    if(res.redirected||!res.ok)throw Error((res.status===401||res.status===403||res.redirected)?'Sessão expirada. Entre novamente.':'Não foi possível atualizar o ranking.');
     const data=await res.json();
     if(rankingBody){for(const item of data.ranking){
       const tr=rankingBody.querySelector('[data-ranking-team="'+item.team_id+'"]');
