@@ -193,3 +193,24 @@ def test_exatamente_tres_autorizados_e_dois_desconhecidos(module,monkeypatch):
     assert response.json["ok"] is True
     assert list(calls[0][1]["p_obs"]) == ["A1","A2","A3","D1","D2"]
     assert "A4" not in calls[0][1]["p_obs"]
+
+def test_identificacao_nominal_dos_avaliadores(module):
+    from types import SimpleNamespace
+    expected={
+        'avaliador01':'Avaliador 1 — DATEN',
+        'avaliador02':'Avaliador 2 — SVATECH',
+        'avaliador03':'Avaliador 3 — Prof. Luiz (FIAP)',
+        'avaliador04':'Avaliador 4 — Prof. Roberto (FIAP)',
+        'avaliador05':'Avaliador 5 — Reserva / a definir'
+    }
+    for username,label in expected.items():
+        assert module.evaluator_label(SimpleNamespace(
+            username=username, display_name='Nome antigo'
+        )) == label
+    assert module.evaluator_label(SimpleNamespace(
+        username='avaliador_externo',display_name='Convidado'
+    )) == 'Convidado'
+    login_page=module.app.test_client().get('/login').get_data(as_text=True)
+    assert 'Avaliador 3 — Prof. Luiz (FIAP)' in login_page
+    assert 'Avaliador 4 — Prof. Roberto (FIAP)' in login_page
+    assert 'data-login-identity=' in login_page
