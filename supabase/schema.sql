@@ -57,9 +57,9 @@ create table if not exists public.banca_auditoria (
     created_at timestamptz not null default now()
 );
 
--- Estandes oficiais da organização. Nomes 1 e 6 ainda pendentes de confirmação.
+-- Estandes oficiais da organização. Apenas o nome do grupo 6 segue pendente.
 insert into public.banca_equipes (id,nome,estande,nome_pendente) values
-(1,'GAVS-5','A22',true),
+(1,'Datacore','A22',false),
 (2,'OutBox','A23',false),
 (3,'Auditix AI','A24',false),
 (4,'Next Level','A25',false),
@@ -69,6 +69,11 @@ insert into public.banca_equipes (id,nome,estande,nome_pendente) values
 (8,'VisionAI','A38',false),
 (9,'Argus','A39',false)
 on conflict (id) do nothing;
+
+-- Migração idempotente para projetos já instalados. Não modifica notas nem usuários.
+update public.banca_equipes
+set nome = 'Datacore', nome_pendente = false
+where id = 1 and nome in ('GAVS-5', 'Datacore');
 
 insert into public.banca_temporizadores(equipe_id)
 select id from public.banca_equipes
