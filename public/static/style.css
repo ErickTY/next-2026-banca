@@ -144,3 +144,17 @@
  .quick-submitstate{flex-basis:100%}
  .quick-camera-grid{gap:8px}
 }
+
+/* Identidade da banca: confirmação clara do perfil escolhido e autenticado. */
+.access-tile{min-height:94px;gap:4px;white-space:normal}
+.access-name{font-size:12px;font-weight:800;line-height:1.15}
+.access-affiliation{font-size:11px;line-height:1.15;color:#c9d0df;font-weight:550;text-align:center;overflow-wrap:anywhere}
+.access-tile.selected .access-affiliation{color:#ffe8ef}
+.selected-access-name{background:#231b29;border:1px solid #69344c;border-radius:10px;color:#ffcee0;padding:10px 13px;margin:4px 0 0;font-size:13px;font-weight:750;min-height:40px}
+.user-identity{max-width:min(50vw,420px);overflow-wrap:anywhere;text-align:right;line-height:1.25}
+.evaluator-identification,.evaluator-dashboard-banner{background:linear-gradient(105deg,#2e1729,#191c2a);border:1px solid #7a3150;border-radius:11px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;margin:12px 0;font-size:13px}
+.evaluator-identification strong,.evaluator-dashboard-banner strong{font-size:17px;color:#fff}
+.evaluator-identification small,.evaluator-dashboard-banner>span.muted{color:#b8becb;font-size:11px}
+.evaluator-id-label{letter-spacing:1.2px;font-size:10px;color:#ff8ab1;font-weight:900}
+.evaluator-dashboard-banner{margin:0 0 22px}
+@media(max-width:640px){.user-identity{max-width:43vw;font-size:11px}.access-tile{min-height:99px;padding:10px 4px}.access-affiliation{font-size:10px}.evaluator-identification strong,.evaluator-dashboard-banner strong{font-size:15px}}
