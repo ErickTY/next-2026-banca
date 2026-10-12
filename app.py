@@ -648,7 +648,7 @@ def audit_csv():
                     headers={"Content-Disposition":"attachment; filename=NEXT_2026_Auditoria.csv"})
 
 from manual_admin import install_manual_routes
-install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY)
+install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY,evaluator_label)
 
 if __name__=="__main__":
     app.run(debug=not PROD, host="127.0.0.1",port=int(os.getenv("PORT","5000")))
