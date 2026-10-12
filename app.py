@@ -29,6 +29,20 @@ TEAMS = [(1, "Datacore", "A22", False), (2, "OutBox", "A23", False),
          (5, "DataKeeper", "A26", False), (6, "Gamma", "A27", True),
          (7, "JPPN Tech", "A37", False), (8, "VisionAI", "A38", False),
          (9, "Argus", "A39", False)]
+JUDGE_IDENTITIES = {
+    "avaliador01": "Avaliador 1 — DATEN",
+    "avaliador02": "Avaliador 2 — SVATECH",
+    "avaliador03": "Avaliador 3 — Prof. Luiz (FIAP)",
+    "avaliador04": "Avaliador 4 — Prof. Roberto (FIAP)",
+    "avaliador05": "Avaliador 5 — Reserva / a definir",
+}
+
+def evaluator_label(user):
+    """Identificação conferível pelo login autenticado, não por dado enviado no formulário."""
+    if not user:
+        return ""
+    return JUDGE_IDENTITIES.get(user.username, user.display_name)
+
 PARTICIPANTS = ("A1", "A2", "A3", "D1", "D2")
 VALID_OBS = {
     **{x: {"correto", "erro", "nao_testado"} for x in PARTICIPANTS[:3]},
@@ -254,7 +268,11 @@ def get_user():
 def shared():
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
-    return {"csrf_token": session["csrf_token"], "current_user": get_user()}
+    user = get_user()
+    return {"csrf_token": session["csrf_token"],
+            "current_user": user,
+            "current_user_label": evaluator_label(user),
+            "judge_profiles": JUDGE_IDENTITIES}
 
 def login_required(fn):
     @wraps(fn)
