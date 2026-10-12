@@ -44,3 +44,5 @@
 .preview-row>small{text-align:right;color:var(--muted)}
 .preview-row.no-score{opacity:.65}
 @media(max-width:660px){.results-preview .sectiontitle{display:block}.results-preview .sectiontitle>a{display:inline-flex;margin-top:12px}.preview-row{grid-template-columns:36px minmax(0,1fr) 95px;gap:8px;padding:11px 10px}.preview-row>span{font-size:12px}.preview-row>b{font-size:13px}.preview-row>small{grid-column:2/-1;text-align:left}}
+
+.timer-inline-error{color:#ff9cad;font-size:12px;margin:8px 0 0;line-height:1.4}.timer-inline-error:empty{display:none}
