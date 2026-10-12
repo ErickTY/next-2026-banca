@@ -24,7 +24,7 @@
       </label>
       <label>Avaliador
         <select name="judge" required>
-          {% for u in judges %}<option value="{{ u.id }}">{{ evaluator_label(u|tojson) if false else (judge_profiles.get(u.username,u.nome_exibicao)) }}</option>{% endfor %}
+          {% for u in judges %}<option value="{{ u.id }}">{{ judge_profiles.get(u.username,u.nome_exibicao) }}</option>{% endfor %}
         </select>
       </label>
       <button type="submit" class="primary">↓ Exportar ficha PDF individual</button>
