@@ -11,3 +11,56 @@ function updateTotal(){const values=[1,2,3].map(i=>document.querySelector(`input
 document.querySelectorAll('input[type="radio"]').forEach(x=>x.addEventListener('change',updateTotal));
 document.querySelectorAll('[data-confirm]').forEach(x=>x.addEventListener('click',e=>{if(!confirm(x.dataset.confirm))e.preventDefault()}));
 document.querySelector('[data-copy-credentials]')?.addEventListener('click',async e=>{const name=e.currentTarget.dataset.copyCredentials;const password=document.querySelector('#new-password')?.textContent||'';try{await navigator.clipboard.writeText(`NEXT 2026 — Acesso do avaliador\nUsuário: ${name}\nSenha: ${password}`);e.currentTarget.textContent='Dados copiados!'}catch{alert('Selecione e copie o identificador e a senha acima.')}});
+
+
+// Quadro de classificação: consultas autenticadas a cada 3 segundos.
+// Nenhuma senha ou chave Supabase é enviada ao navegador.
+const rankingBody=document.querySelector('[data-ranking-body]');
+let rankingRequestActive=false;
+function formatAverage(value){
+  return typeof value==='number'&&Number.isFinite(value) ? value.toFixed(2).replace('.',',') : '—';
+}
+function rankCell(tr,selector,value){
+  const node=tr.querySelector(selector);
+  if(node)node.textContent=String(value);
+}
+async function pollRanking(){
+  if(!rankingBody||rankingRequestActive)return;
+  rankingRequestActive=true;
+  const state=document.querySelector('[data-rank-connect]');
+  try{
+    const res=await fetch('/api/results',{credentials:'same-origin',cache:'no-store'});
+    if(!res.ok)throw Error(res.status===403||res.redirected?'Sessão expirada. Entre novamente.':'Não foi possível atualizar o ranking.');
+    const data=await res.json();
+    for(const item of data.ranking){
+      const tr=rankingBody.querySelector('[data-ranking-team="'+item.team_id+'"]');
+      if(!tr)continue;
+      rankCell(tr,'[data-rank]',item.rank===null?'—':item.rank+'º');
+      rankCell(tr,'[data-team-name]',item.name);
+      rankCell(tr,'[data-stand]','Grupo '+String(item.team_id).padStart(2,'0')+' · '+item.stand);
+      rankCell(tr,'[data-c1]',formatAverage(item.c1_average));
+      rankCell(tr,'[data-c2]',formatAverage(item.c2_average));
+      rankCell(tr,'[data-c3]',formatAverage(item.c3_average));
+      rankCell(tr,'[data-average]',formatAverage(item.average));
+      rankCell(tr,'[data-votes]',item.evaluations+' / '+item.expected);
+      rankCell(tr,'[data-completeness]',!item.evaluations?'Sem avaliações':(item.complete?'Todas recebidas':'Parcial'));
+      rankCell(tr,'[data-lock]',item.locked?'Notas bloqueadas':'');
+      const bar=tr.querySelector('[data-bar]');
+      if(bar)bar.value=item.average===null?0:item.average;
+      tr.classList.toggle('no-score',item.evaluations===0);
+      rankingBody.appendChild(tr); // Mantém a ordem calculada pelo servidor.
+    }
+    rankCell(document,'[data-expected-judges]',data.expected_judges);
+    const stamp=document.querySelector('[data-ranking-updated]');
+    if(stamp)stamp.textContent='Atualizado às '+new Date(data.updated_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if(state)state.textContent='Conectado · atualização a cada 3 segundos';
+  }catch(error){
+    if(state)state.textContent=error.message||'Falha de atualização. Tentando novamente...';
+  }finally{
+    rankingRequestActive=false;
+  }
+}
+if(rankingBody){
+  pollRanking();
+  setInterval(pollRanking,3000);
+}
