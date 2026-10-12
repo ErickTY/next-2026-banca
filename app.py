@@ -117,8 +117,8 @@ def config_issue():
         return "SUPABASE_SECRET_KEY não configurada"
     if len(os.getenv("SECRET_KEY", "")) < 32:
         return "SECRET_KEY deve ter pelo menos 32 caracteres"
-    if len(os.getenv("ADMIN_PASSWORD", "")) < 12:
-        return "ADMIN_PASSWORD deve ter pelo menos 12 caracteres"
+    # ADMIN_PASSWORD é usada apenas para criar a primeira conta; senhas já
+    # cadastradas são validadas exclusivamente pelo hash salvo no Supabase.
     return None
 
 def call(method, path, params=None, payload=None, prefer=None):
