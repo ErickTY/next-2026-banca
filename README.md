@@ -128,3 +128,13 @@ A banca agora dispõe de apenas quatro perfis: avaliador01 (DATEN), avaliador02 
 O login, gerenciamento de contas, importação manual e ranking consideram somente esses quatro avaliadores. Qualquer nota antiga do quinto perfil permanece armazenada para auditoria, mas não compõe a média oficial.
 
 Execute no SQL Editor do Supabase do NEXT a migração [20261012_quatro_avaliadores.sql](supabase/migrations/20261012_quatro_avaliadores.sql) para desativar a conta avaliador05 sem apagá-la. O aplicativo já impede novos acessos desse usuário mesmo antes da migração.
+
+## Avaliação rápida, sem observações, e ponderação por câmera (12/10/2026)
+
+- A ficha eletrônica não possui mais a caixa de **Observações técnicas**. Continuam obrigatórios os cinco participantes, três critérios C1/C2/C3 (0 a 5), câmeras disponibilizadas e utilizadas. A coluna histórica de notas é preservada para compatibilidade com fichas antigas e contingência.
+- **Uma câmera utilizada:** bônus de 10% no total técnico, com limite de 15 pontos. **Duas câmeras utilizadas:** sem bônus. Fórmula: `nota ponderada = min(15, (C1+C2+C3) * 1.10)` se usar uma câmera; caso contrário, `nota ponderada = C1+C2+C3`.
+- Exemplo: 8/15 com uma câmera corresponde a **8,80/15** no ranking; com duas câmeras, **8,00/15**.
+- O ranking usa a **média das notas ponderadas dos quatro avaliadores oficiais**. A ficha exibe nota técnica e nota ponderada. O quadro de classificação mostra ambas as médias e quantas fichas declararam uso de uma câmera.
+- O CSV exporta `total_bruto`, `total_ponderado` e `bonus_uma_camera_pct`. Registros existentes também recebem essa ponderação automaticamente pelo número de câmeras armazenado, sem modificar o banco.
+- **Instalação obrigatória:** executar no SQL Editor do Supabase do NEXT 2026 a migração [supabase/migrations/20261012_sem_observacoes_bonus_camera.sql](supabase/migrations/20261012_sem_observacoes_bonus_camera.sql). Ela atualiza a função RPC de salvamento, inclusive removendo a exigência antiga de A4. Nenhuma tabela ou usuário é apagado.
+- As regras de pontuação precisam ser confirmadas e comunicadas à banca antes da competição, pois alteram o ranking comparativamente às notas técnicas brutas.

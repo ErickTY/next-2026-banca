@@ -119,7 +119,7 @@ for(const form of document.querySelectorAll('form[data-timer-control]')){
     }
   });
 }
-// Ficha rápida: três notas, seis observações e justificativa quando necessária.
+// Ficha rápida: três notas, cinco participantes e bonus por uma camera.
 const fastForm=document.querySelector('#fast-evaluate');
 const fastSaveButton=document.querySelector('#quick-save');
 const quickSaveStatus=document.querySelector('#quick-save-status');
@@ -131,6 +131,14 @@ function updateTotal(){
   const sum=selected.every(Boolean)?selected.reduce((n,e)=>n+Number(e.value),0):null;
   const el=document.querySelector('#score-total');
   if(el)el.textContent=(sum===null?'—':sum)+' / 15';
+  const used=fastForm?.querySelector('input[name="used"]:checked')?.value;
+  const adjusted=sum===null?'—':Math.min(15,sum*(used==='1'?1.1:1)).toFixed(2).replace('.',',');
+  const adjustedEl=document.querySelector('#score-adjusted');
+  if(adjustedEl)adjustedEl.textContent=adjusted+' / 15';
+  const bonusLabel=document.querySelector('#camera-bonus-label');
+  if(bonusLabel)bonusLabel.textContent=used==='1'
+    ?'Bônus de 10% aplicado (limitado a 15 pontos).'
+    :used==='2'?'Sem bônus: duas câmeras utilizadas.':'Selecione as câmeras utilizadas para calcular o bônus.';
   if(!fastForm)return;
   const observations=['A1','A2','A3','D1','D2'].map(k=>fastForm.querySelector('input[name="'+k+'"]:checked'));
   const completed=observations.filter(Boolean).length;
@@ -140,16 +148,6 @@ function updateTotal(){
   const scoreCount=fastForm.querySelector('[data-score-count]');
   if(scoreCount)scoreCount.textContent=scoresCompleted+'/3';
 
-  const hasIssue=observations.some(x=>x&&['erro','nao_testado','falso_aceite','sem_leitura'].includes(x.value))||
-    selected.some(x=>x&&Number(x.value)<=2);
-  const notes=fastForm.elements.namedItem('notes');
-  const notesRule=fastForm.querySelector('[data-notes-rule]');
-  if(notes){
-    notes.required=hasIssue;
-    notes.minLength=hasIssue?10:0;
-    notes.closest('.quick-notes-wrap')?.classList.toggle('needs-explanation',hasIssue);
-  }
-  if(notesRule)notesRule.textContent=hasIssue?'Obrigatória: descreva o motivo em pelo menos 10 caracteres.':'Opcional quando não houver falhas ou testes pendentes.';
   const complete=completed===5&&scoresCompleted===3&&!!fastForm.querySelector('input[name="available"]:checked')&&!!fastForm.querySelector('input[name="used"]:checked');
   const progress=document.querySelector('#quick-form-progress');
   if(progress)progress.textContent=complete?'Ficha preenchida · confira e salve':'Selecione 5 participantes, 3 notas e câmeras';
@@ -285,6 +283,8 @@ async function pollRanking(){
       rankCell(tr,'[data-c2]',formatAverage(item.c2_average));
       rankCell(tr,'[data-c3]',formatAverage(item.c3_average));
       rankCell(tr,'[data-average]',formatAverage(item.average));
+      rankCell(tr,'[data-base-average]',formatAverage(item.base_average));
+      rankCell(tr,'[data-cameras]',item.one_camera_evaluations+' / '+item.evaluations);
       rankCell(tr,'[data-votes]',item.evaluations+' / '+item.expected);
       rankCell(tr,'[data-completeness]',!item.evaluations?'Sem avaliações':(item.complete?'Todas recebidas':'Parcial'));
       rankCell(tr,'[data-lock]',item.locked?'Notas bloqueadas':'');
@@ -305,7 +305,7 @@ async function pollRanking(){
         const mean=document.createElement('b');
         mean.textContent=formatAverage(item.average)+' / 15';
         const votes=document.createElement('small');
-        votes.textContent=item.evaluations+' / '+item.expected+' fichas';
+        votes.textContent=item.evaluations+' / '+item.expected+' fichas · '+item.one_camera_evaluations+' com 1 câmera';
         row.append(rank,name,mean,votes);
         fragment.appendChild(row);
       }
@@ -405,8 +405,8 @@ if(scanForm&&confirmForm){
       if(res.redirected)throw Error('Sessão expirada. Entre novamente.');
       const result=await res.json().catch(()=>({}));
       if(!res.ok||!result.ok)throw Error(result.error||'Não foi possível contabilizar.');
-      setState(saveStatus,'✓ Nota '+result.total+'/15 de '+result.judge+
-         ' para '+result.group+' contabilizada no ranking. Comprovante salvo.');
+      setState(saveStatus,'✓ Nota ponderada '+result.adjusted_total+'/15 (técnica '+result.total+
+         '/15) de '+result.judge+' para '+result.group+' contabilizada no ranking. Comprovante salvo.');
       saveButton.disabled=true; // impedir segunda importacao do mesmo comprovante
     }catch(err){
       setState(saveStatus,err.message||'Falha ao registrar. Confira a conexão.');

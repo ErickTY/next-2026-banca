@@ -223,9 +223,6 @@ begin
             _falha := true;
         end if;
     end loop;
-    if (_falha or least(p_c1,p_c2,p_c3)<=2) and length(trim(coalesce(p_notas,'')))<10 then
-        raise exception 'Justifique os erros e notas insuficientes';
-    end if;
     insert into public.banca_avaliacoes(
         equipe_id,usuario_id,c1,c2,c3,cameras_disponiveis,cameras_usadas,
         observacoes,notes,updated_at

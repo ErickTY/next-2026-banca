@@ -6,7 +6,7 @@
     <a class="back" href="{{ url_for('dashboard') }}">← Voltar ao painel da coordenação</a>
     <div class="eyebrow">CHALLENGE DATEN · ARENA FINAL · ADMINISTRAÇÃO</div>
     <h1>Classificação <span class="pink">ao vivo</span></h1>
-    <p class="muted">Média das fichas registradas por grupo, atualizada automaticamente a cada 3 segundos. Critérios C1, C2 e C3 com notas de 0 a 5, total máximo de 15 pontos.</p>
+    <p class="muted">Médias em tempo real: notas C1, C2 e C3 (0–5); utilização de uma câmera aplica bônus de 10%, com teto de 15 pontos.</p>
   </div>
   <div class="toolbar">
     <a class="outline" href="{{ url_for('export_csv') }}">↓ Exportar fichas</a>
@@ -27,7 +27,7 @@
     <table class="results-table">
       <thead>
         <tr>
-          <th>Posição</th><th>Equipe / estande</th><th>C1 média</th><th>C2 média</th><th>C3 média</th><th>Média final</th><th>Fichas</th><th>Situação</th>
+          <th>Posição</th><th>Equipe / estande</th><th>C1 média</th><th>C2 média</th><th>C3 média</th><th>Média técnica</th><th>Média ponderada</th><th>1 câmera</th><th>Fichas</th><th>Situação</th>
         </tr>
       </thead>
       <tbody data-ranking-body>
@@ -38,10 +38,12 @@
           <td data-c1>{{ '%.2f'|format(item.c1_average)|replace('.', ',') if item.c1_average is not none else '—' }}</td>
           <td data-c2>{{ '%.2f'|format(item.c2_average)|replace('.', ',') if item.c2_average is not none else '—' }}</td>
           <td data-c3>{{ '%.2f'|format(item.c3_average)|replace('.', ',') if item.c3_average is not none else '—' }}</td>
+          <td data-base-average>{{ '%.2f'|format(item.base_average)|replace('.', ',') if item.base_average is not none else '—' }}</td>
           <td class="avg-col">
             <strong data-average>{{ '%.2f'|format(item.average)|replace('.', ',') if item.average is not none else '—' }}</strong><small> / 15</small>
             <progress max="15" value="{{ item.average if item.average is not none else 0 }}" data-bar aria-label="Progresso da pontuação"></progress>
           </td>
+          <td data-cameras>{{ item.one_camera_evaluations }} / {{ item.evaluations }}</td>
           <td data-votes>{{ item.evaluations }} / {{ item.expected }}</td>
           <td><span class="result-status" data-completeness>{{ 'Sem avaliações' if not item.evaluations else ('Todas recebidas' if item.complete else 'Parcial') }}</span>{% if item.locked %}<small class="result-locked" data-lock>Notas bloqueadas</small>{% else %}<small class="result-locked" data-lock></small>{% endif %}</td>
         </tr>
@@ -49,6 +51,6 @@
       </tbody>
     </table>
   </div>
-  <p class="results-footnote"><strong>Critério de classificação:</strong> média aritmética dos totais registrados (C1 + C2 + C3) por equipe. Empates recebem a mesma posição; grupos sem avaliação não recebem posição. Com quantidades diferentes de fichas, os resultados permanecem provisórios. Este quadro é reservado à coordenação e <strong>não determina sozinho o ranking final do NEXT.</strong></p>
+  <p class="results-footnote"><strong>Critério de classificação:</strong> média aritmética das notas ponderadas de cada ficha por equipe. Nota ponderada = mínimo entre 15 e (C1 + C2 + C3) × 1,10, quando foi usada uma câmera; com duas câmeras, mantém-se a nota técnica. Empates recebem a mesma posição; grupos sem avaliação não recebem posição. Com quantidades diferentes de fichas, os resultados permanecem provisórios. Este quadro é reservado à coordenação e <strong>não determina sozinho o ranking final do NEXT.</strong></p>
 </section>
 {% endblock %}

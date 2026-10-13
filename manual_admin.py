@@ -128,9 +128,6 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
         if not all(0<=x<=5 for x in (c1,c2,c3)) or not 1<=used<=available<=2:
             return jsonify(ok=False,error="Notas ou cameras invalidas."),400
         notes=request.form.get("notes","").strip()[:3000]
-        failures=any(v in ("erro","falso_aceite","sem_leitura","nao_testado") for v in obs.values()) or min(c1,c2,c3)<=2
-        if failures and len(notes)<10:
-            return jsonify(ok=False,error="Justificativa obrigatoria com pelo menos 10 caracteres."),400
         replacing=request.form.get("replace")=="true"
         if replacing and request.form.get("replace_confirmation")!="SUBSTITUIR":
             return jsonify(ok=False,error="Digite SUBSTITUIR para sobrescrever a nota anterior."),400
@@ -145,7 +142,10 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
                 "p_substituir":replacing})
         except Exception:
             return jsonify(ok=False,error="Supabase recusou a gravacao. Confira a migracao SQL e o bloqueio da equipe."),503
-        return jsonify(ok=True,total=c1+c2+c3,group=team.name,judge=judge.display_name)
+        raw=c1+c2+c3
+        adjusted=min(15,raw*(1.1 if used==1 else 1))
+        return jsonify(ok=True,total=raw,adjusted_total=round(adjusted,2),
+                       group=team.name,judge=judge.display_name)
 
     @app.get("/admin/contingencia/foto/<int:import_id>")
     @admin_required

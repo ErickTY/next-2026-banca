@@ -120,8 +120,26 @@ def record(row):
         obj["version"] = obj["versao"]
     return SimpleNamespace(**obj)
 
+def raw_score(ev):
+    """Nota tecnica de 0 a 15, sem ajuste."""
+    return int(ev.c1) + int(ev.c2) + int(ev.c3)
+
+
+def weighted_units(raw, cameras_used):
+    """Pontuacao em decimos: 1 camera recebe +10%, com teto 15/15."""
+    return min(150, int(raw) * (11 if int(cameras_used) == 1 else 10))
+
+
 def score(ev):
-    return ev.c1 + ev.c2 + ev.c3
+    """Nota final de 0 a 15 (com bonus de 10% para uma camera)."""
+    used = getattr(ev, "cameras_used", 2)
+    return weighted_units(raw_score(ev), used) / 10.0
+
+
+def row_weighted_units(row):
+    return weighted_units(row["c1"] + row["c2"] + row["c3"],
+                          row.get("cameras_usadas", 2))
+
 
 class SupabaseError(Exception):
     def __init__(self, message, status=503):
@@ -201,7 +219,7 @@ def call(method, path, params=None, payload=None, prefer=None):
         if "bloqueada" in normalized or "bloqueado" in normalized:
             raise SupabaseError("A avaliação desta equipe está bloqueada pela coordenação.")
         if "justifique" in normalized or "justificativa" in normalized:
-            raise SupabaseError("Informe pelo menos 10 caracteres justificando falhas ou notas insuficientes.")
+            raise SupabaseError("A função de avaliação no Supabase ainda exige justificativa. Execute a nova migração de avaliação rápida.")
         if code in ("42P01", "PGRST205") or exc.code == 404:
             raise SupabaseError("Estrutura de avaliação ausente no Supabase. A coordenação deve conferir as migrações.")
         if code == "42501" or "permission denied" in normalized:
@@ -438,14 +456,15 @@ def dashboard():
         scores = [score(e) for e in evaluations if e.team_id == t.id]
         own = next((e for e in evaluations if e.team_id == t.id and e.user_id == user.id), None)
         if own:
-            own.total = score(own)
+            own.total = raw_score(own)
+            own.adjusted_total = score(own)
         rows.append({"team":t, "timer":timer_view(timers[t.id]), "count":len(scores),
                      "average": round(sum(scores)/len(scores),2) if scores else None, "own":own})
     return render_template("dashboard.html", rows=rows, judges=judges, user=user)
 
 
 def build_ranking():
-    """Classificação provisória por média total / 15, com empates reais.
+    """Classificação provisória por média PONDERADA / 15, com empates reais.
 
     Equipes sem avaliações ficam no fim, sem posição. Grupos empatados
     recebem a mesma posição; sem critério de desempate artificial.
@@ -463,20 +482,24 @@ def build_ranking():
     for t in teams:
         group = votes.get(t.id, [])
         count = len(group)
-        total = sum(e["c1"] + e["c2"] + e["c3"] for e in group)
+        raw_total = sum(e["c1"] + e["c2"] + e["c3"] for e in group)
+        weighted_total_units = sum(row_weighted_units(e) for e in group)
+        one_camera = sum(1 for e in group if e.get("cameras_usadas", 2) == 1)
         sums = [sum(e[f"c{i}"] for e in group) for i in (1, 2, 3)]
         rows.append({
             "team_id": t.id, "name": t.name, "stand": t.stand,
             "rank": None,
             "evaluations": count,
             "expected": expected,
-            "average": round(total / count, 2) if count else None,
+            "average": round(weighted_total_units / (10 * count), 2) if count else None,
+            "base_average": round(raw_total / count, 2) if count else None,
+            "one_camera_evaluations": one_camera,
             "c1_average": round(sums[0] / count, 2) if count else None,
             "c2_average": round(sums[1] / count, 2) if count else None,
             "c3_average": round(sums[2] / count, 2) if count else None,
             "locked": bool(t.locked),
             "complete": count > 0 and (expected > 0 and count >= expected),
-            "_sum": total
+            "_sum": weighted_total_units
         })
 
     # Comparison by cross-multiplication below avoids floating point ties.
@@ -542,13 +565,9 @@ def evaluate(group):
         if any(obs[k] not in VALID_OBS[k] for k in PARTICIPANTS):
             return invalid("Marque o resultado dos cinco participantes.")
 
-        notes = request.form.get("notes", "").strip()[:3000]
-        problems = any(
-            v in ("erro", "falso_aceite", "sem_leitura", "nao_testado")
-            for v in obs.values()
-        ) or min(scores) <= 2
-        if problems and len(notes) < 10:
-            return invalid("Explique em pelo menos 10 caracteres as falhas ou testes não realizados.")
+        # Sem caixa de observacoes na ficha rapida. O campo historico segue
+        # no banco por compatibilidade com registros antigos e contingencia.
+        notes = ""
 
         try:
             rpc("banca_salvar_avaliacao", {
@@ -563,6 +582,8 @@ def evaluate(group):
 
         if async_request:
             return jsonify(ok=True, team=group, total=sum(scores),
+                           adjusted_total=weighted_units(sum(scores), used) / 10,
+                           bonus_percent=10 if used == 1 else 0,
                            saved_at=now().isoformat())
         flash("Avaliação registrada.", "success")
         return redirect(url_for("dashboard"))
@@ -671,14 +692,17 @@ def export_csv():
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
     writer.writerow(["grupo","equipe","estande","avaliador","usuario","c1","c2","c3",
-                    "total","cameras_disponiveis","cameras_usadas","A1","A2","A3",
-                    "D1","D2","observacoes","atualizado_em_utc"])
+                    "total_bruto","total_ponderado","bonus_uma_camera_pct",
+                    "cameras_disponiveis","cameras_usadas","A1","A2","A3",
+                    "D1","D2","observacoes_legadas","atualizado_em_utc"])
     teams = {t["id"]:t for t in all_rows("banca_equipes")}
     users = {u["id"]:u for u in all_rows("banca_usuarios")}
     for e in all_rows("banca_avaliacoes", order="equipe_id.asc,usuario_id.asc"):
         t=teams[e["equipe_id"]]; u=users[e["usuario_id"]]; obs=e["observacoes"]
         writer.writerow([t["id"], t["nome"], t["estande"], evaluator_label(record(u)),u["username"],
                          e["c1"],e["c2"],e["c3"],e["c1"]+e["c2"]+e["c3"],
+                         row_weighted_units(e)/10,
+                         10 if e.get("cameras_usadas",2)==1 else 0,
                          e["cameras_disponiveis"],e["cameras_usadas"],
                          *[obs.get(k,"") for k in PARTICIPANTS],e["notes"],e["updated_at"]])
     return Response("\ufeff"+output.getvalue(),mimetype="text/csv; charset=utf-8",

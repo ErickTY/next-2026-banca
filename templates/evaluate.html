@@ -70,11 +70,12 @@
         </div>
       </fieldset>
       {% endfor %}
-      <div class="quick-score-preview"><span>Total calculado</span><strong id="score-total">{{ evaluation.total if evaluation else '—' }} / 15</strong></div>
+      <div class="quick-score-preview"><span>Nota técnica (C1 + C2 + C3)</span><strong id="score-total">{{ evaluation.total if evaluation else '—' }} / 15</strong></div>
+      <div class="quick-adjusted-preview"><span>Nota ponderada para classificação</span><strong id="score-adjusted">{{ ('%.2f'|format(evaluation.adjusted_total)|replace('.', ',')) if evaluation else '—' }} / 15</strong><small id="camera-bonus-label">Uma câmera utilizada: bônus de 10% (máximo 15 pontos).</small></div>
       <p class="muted score-key">0 não demonstrou · 1 muito insuficiente · 2 insuficiente · 3 adequado · 4 bom · 5 excelente</p>
     </section>
     <section class="panel quick-details" aria-labelledby="quick-details-title">
-      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 3</div><h2 id="quick-details-title">Câmeras e ocorrências</h2></div></div>
+      <div class="quick-section-head"><div><div class="eyebrow">ETAPA 3</div><h2 id="quick-details-title">Câmeras utilizadas</h2></div></div>
       <div class="quick-camera-grid">
         <fieldset class="quick-criterion">
           <legend><strong>Disponibilizadas</strong></legend>
@@ -97,12 +98,7 @@
           </div>
         </fieldset>
       </div>
-      <div class="quick-notes-wrap">
-        <label for="quick-notes"><strong>Observações técnicas</strong><small data-notes-rule>Opcional quando todos os testes foram concluídos sem falhas e todas as notas são 3 ou mais.</small></label>
-        <textarea id="quick-notes" name="notes" rows="2" maxlength="3000"
-          {{ 'disabled' if team.locked else '' }}
-          placeholder="Anote falhas, testes pendentes, situações incomuns e evidências...">{{ evaluation.notes if evaluation else '' }}</textarea>
-      </div>
+      <p class="camera-weight-hint">Utilizar somente 1 câmera aplica um bônus de 10% ao total técnico, até o limite de 15 pontos. Duas câmeras mantêm a nota original.</p>
     </section>
   </div>
   <div class="quick-submitbar">

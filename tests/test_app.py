@@ -172,6 +172,8 @@ def test_avaliacao_rapida_pede_observacao_explicita_e_salva_sem_reload(module,mo
     ok=c.post('/evaluate/1',data=data,headers=headers)
     assert ok.status_code==200 and ok.json['ok'] is True
     assert ok.json['total']==13
+    assert ok.json['adjusted_total']==14.3
+    assert saved[0][1]['p_notas']==''
     assert len(saved)==1 and saved[0][1]['p_equipe']==1
     assert 'Location' not in ok.headers
 
@@ -344,3 +346,50 @@ def test_quinta_nota_antiga_nao_entra_no_ranking(module,monkeypatch):
     assert ranking["evaluations"]==4
     assert ranking["average"]==12
     assert ranking["complete"] is True
+
+def test_bonus_uma_camera_respeita_teto_e_zero(module):
+    from types import SimpleNamespace
+    assert module.weighted_units(8,1)==88
+    assert module.weighted_units(8,2)==80
+    assert module.weighted_units(13,1)==143
+    assert module.weighted_units(15,1)==150
+    assert module.weighted_units(0,1)==0
+    evaluation=SimpleNamespace(c1=3,c2=3,c3=2,cameras_used=1)
+    assert module.score(evaluation)==8.8
+
+
+def test_ranking_por_media_ponderada_prioriza_uma_camera(module,monkeypatch):
+    teams=[{"id":1,"nome":"Datacore","estande":"A22","bloqueado":False},
+           {"id":2,"nome":"OutBox","estande":"A23","bloqueado":False}]
+    judges=[{"id":i,"username":"avaliador%02d"%i,"nome_exibicao":str(i)} for i in range(1,5)]
+    monkeypatch.setattr(module,"select",lambda table,*args,**kwargs:
+        teams if table=="banca_equipes" else judges)
+    votes=[
+        {"usuario_id":1,"equipe_id":1,"c1":3,"c2":3,"c3":2,"cameras_usadas":1},
+        {"usuario_id":2,"equipe_id":2,"c1":3,"c2":3,"c3":2,"cameras_usadas":2},
+    ]
+    monkeypatch.setattr(module,"all_rows",lambda table,**kwargs:votes)
+    ranking=module.build_ranking()["ranking"]
+    assert [i["team_id"] for i in ranking]==[1,2]
+    assert ranking[0]["average"]==8.8
+    assert ranking[0]["base_average"]==8.0
+    assert ranking[0]["one_camera_evaluations"]==1
+    assert ranking[1]["average"]==8.0
+
+
+def test_sem_observacoes_tecnicas_obrigatorias(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,"get_user",lambda:SimpleNamespace(
+        id=3,role="judge",username="avaliador03",active=True))
+    monkeypatch.setattr(module,"get_team",lambda n:SimpleNamespace(id=n,locked=False))
+    calls=[]
+    monkeypatch.setattr(module,"rpc",lambda n,payload:calls.append(payload))
+    client=module.app.test_client()
+    with client.session_transaction() as sess:sess["csrf_token"]="known"
+    data={"csrf_token":"known","c1":"1","c2":"2","c3":"3",
+        "available":"2","used":"1","A1":"erro","A2":"correto","A3":"correto",
+        "D1":"alerta","D2":"sem_leitura"}
+    r=client.post("/evaluate/1",data=data,headers={"X-Requested-With":"XMLHttpRequest"})
+    assert r.status_code==200
+    assert r.json["ok"] is True
+    assert calls[0]["p_notas"]==""
