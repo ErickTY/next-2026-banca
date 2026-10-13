@@ -46,7 +46,7 @@ relations AS (
     CASE relkind WHEN 'r' THEN 'tabela comum'
                  WHEN 'p' THEN 'tabela particionada'
                  WHEN 'v' THEN 'view'
-                 ELSE 'tipo ' || relkind END AS detalhe
+                 ELSE 'tipo ' || relkind::text END AS detalhe
   FROM rels
 )
 SELECT componente, nome, detalhe
