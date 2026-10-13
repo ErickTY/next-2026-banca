@@ -198,6 +198,20 @@ def call(method, path, params=None, payload=None, prefer=None):
             "Supabase REST falhou: method=%s endpoint=%s http=%s sqlstate=%s message=%s",
             method, path, exc.code, code, backend_message[:180]
         )
+        if code == "21000" and "banca_limpar_avaliacoes" in path:
+            # Apresentar a mensagem PostgreSQL SOMENTE neste fluxo admin.
+            # SQLSTATE 21000 não é falha de login nem função ausente:
+            # requer investigar função e possíveis gatilhos/consultas internas.
+            details = str(detail.get("details") or "").strip()
+            message = backend_message.strip()[:280] or "violação de cardinalidade"
+            extra = (" Detalhe: " + details[:240]) if details else ""
+            log.error("Falha 21000 na exclusão: %s; detalhe=%s",
+                      message, details[:600])
+            raise SupabaseError(
+                "Falha SQL 21000 na limpeza do histórico: " + message + extra +
+                " Nenhuma alteração foi confirmada; execute o diagnóstico "
+                "20261013_diagnosticar_erro_21000.sql."
+            )
         if exc.code in (401, 403):
             raise SupabaseError("Acesso ao Supabase não autorizado. A coordenação deve conferir a chave privada no Vercel.")
         if (code == "PGRST202" or "could not find the function" in normalized):
