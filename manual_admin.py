@@ -159,13 +159,11 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
     @app.post("/admin/historico/limpar")
     @admin_required
     def manual_clear_history():
-        from werkzeug.security import check_password_hash
+        # A sessao administrativa e o CSRF autenticam a exclusao.
+        # A interface confirma apenas no envio, nao na selecao dos campos.
         u=get_user()
-        if not check_password_hash(u.password_hash,request.form.get("password","")):
-            flash("Senha administrativa incorreta; nenhuma nota apagada.","error")
-            return redirect(url_for("manual_dashboard"))
         if request.form.get("confirmation")!="APAGAR NOTAS":
-            flash("Digite APAGAR NOTAS para confirmar.","error")
+            flash("Confirmação de exclusão ausente. Nenhuma nota foi apagada.","error")
             return redirect(url_for("manual_dashboard"))
         try:team=None if request.form.get("group")=="all" else int(request.form.get("group"))
         except (ValueError,TypeError):abort(400)

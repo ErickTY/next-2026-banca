@@ -116,10 +116,11 @@
 <section class="panel adminhistory">
   <div class="eyebrow">MANUTENÇÃO ADMINISTRATIVA</div>
   <h2>Limpar histórico de notas</h2>
-  <p class="muted">Remove notas do ranking de um grupo ou de todos, sem apagar usuários, cronômetros, fotografias nem registros de auditoria. Esta ação não pode ser desfeita automaticamente. Exporte o CSV antes.</p>
-  <a class="outline" href="{{ url_for('export_csv') }}">↓ Fazer backup CSV das notas</a>
-  <form method="post" action="{{ url_for('manual_clear_history') }}" class="manual-clear-form" data-confirm="Esta ação exclui notas do ranking. Você já exportou o backup?">
+  <p class="muted">Selecione um grupo ou todos e confirme uma única vez. O backup CSV é opcional e não impede a exclusão. Esta ação não pode ser desfeita automaticamente; usuários, cronômetros, fotografias e auditoria serão preservados.</p>
+  <a class="outline" href="{{ url_for('export_csv') }}">↓ Exportar backup CSV (opcional)</a>
+  <form method="post" action="{{ url_for('manual_clear_history') }}" class="manual-clear-form" data-confirm="Confirma a exclusão das notas selecionadas? Esta ação não poderá ser desfeita.">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="confirmation" value="APAGAR NOTAS">
     <label>Escopo da exclusão
       <select name="group" required>
         <option value="">Selecione...</option>
@@ -127,8 +128,6 @@
         <option value="all">TODAS AS NOTAS · 9 grupos</option>
       </select>
     </label>
-    <label>Senha da coordenação<input type="password" name="password" autocomplete="current-password" required></label>
-    <label>Confirmação por extenso<input name="confirmation" placeholder="APAGAR NOTAS" autocomplete="off" required></label>
     <button type="submit" class="danger">Apagar notas selecionadas</button>
   </form>
 </section>

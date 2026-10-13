@@ -432,3 +432,38 @@ def test_ranking_varios_grupos_ao_vivo_sem_keyerror(module,monkeypatch):
     api=client.get("/api/results")
     assert api.status_code==200
     assert [r["rank"] for r in api.json["ranking"]]==[1,1,3,4,None]
+
+
+def test_exclusao_administrativa_sem_backup_ou_senha_extra(module,monkeypatch):
+    from types import SimpleNamespace
+    user=SimpleNamespace(id=1,username="coordenacao",role="admin",active=True)
+    monkeypatch.setattr(module,"get_user",lambda:user)
+    calls=[]
+    def delete_rpc(name,payload):
+        calls.append((name,payload))
+        return {"apagadas":3}
+    monkeypatch.setattr(module,"rpc",delete_rpc)
+    client=module.app.test_client()
+    with client.session_transaction() as session: session["csrf_token"]="valid-token"
+    response=client.post("/admin/historico/limpar",data={
+        "csrf_token":"valid-token","group":"all","confirmation":"APAGAR NOTAS"
+    })
+    assert response.status_code==302
+    assert calls==[("banca_limpar_avaliacoes",{
+        "p_admin":1,"p_equipe":None,"p_confirmacao":"APAGAR NOTAS"
+    })]
+
+
+def test_exclusao_exige_token_de_confirmacao_no_servidor(module,monkeypatch):
+    from types import SimpleNamespace
+    user=SimpleNamespace(id=1,username="coordenacao",role="admin",active=True)
+    monkeypatch.setattr(module,"get_user",lambda:user)
+    calls=[]
+    monkeypatch.setattr(module,"rpc",lambda *args: calls.append(args))
+    client=module.app.test_client()
+    with client.session_transaction() as session: session["csrf_token"]="valid-token"
+    response=client.post("/admin/historico/limpar",data={
+        "csrf_token":"valid-token","group":"all"
+    })
+    assert response.status_code==302
+    assert calls==[]

@@ -249,7 +249,12 @@ if(quickLogin){
     }
   });
 }
-document.querySelectorAll('[data-confirm]').forEach(x=>x.addEventListener('click',e=>{if(!confirm(x.dataset.confirm))e.preventDefault()}));
+// Para formulários: confirmar apenas no envio, nunca ao clicar num campo.
+document.querySelectorAll('[data-confirm]').forEach(element=>{
+  element.addEventListener(element.tagName==='FORM'?'submit':'click',event=>{
+    if(!confirm(element.dataset.confirm))event.preventDefault();
+  });
+});
 document.querySelector('[data-copy-credentials]')?.addEventListener('click',async e=>{const name=e.currentTarget.dataset.copyCredentials;const password=document.querySelector('#new-password')?.textContent||'';try{await navigator.clipboard.writeText(`NEXT 2026 — Acesso do avaliador\nUsuário: ${name}\nSenha: ${password}`);e.currentTarget.textContent='Dados copiados!'}catch{alert('Selecione e copie o identificador e a senha acima.')}});
 
 

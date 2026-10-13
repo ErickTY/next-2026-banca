@@ -74,8 +74,8 @@ O painel da coordenação está disponível em **/admin/contingencia** (somente 
 
 ### Apagar histórico de notas
 
-- A coordenação pode excluir notas contabilizadas de uma equipe ou de todas, com senha administrativa e confirmação APAGAR NOTAS.
-- Exporte o CSV antes. A exclusão NÃO pode ser desfeita automaticamente.
+- A coordenação pode excluir notas contabilizadas de uma equipe ou de todas com **uma única confirmação** ao clicar em Apagar. A sessão administrativa e o CSRF protegem a operação; não é necessário inserir novamente a senha nem digitar uma frase.
+- O backup CSV é **opcional** e não impede a exclusão. A exclusão NÃO pode ser desfeita automaticamente.
 - Os comprovantes fotográficos e a auditoria são mantidos como trilha de responsabilidade; usuários e temporizadores não são apagados.
 
 ### Passo obrigatório no Supabase existente
