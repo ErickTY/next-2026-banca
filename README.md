@@ -120,3 +120,11 @@ Para rodar testes simulados da API, instale pytest e rode pytest -q.
 - Teste com dois celulares, crie avaliadores, salve duas notas e exporte CSV antes do evento.
 
 Fontes: [Supabase API Keys](https://supabase.com/docs/guides/getting-started/api-keys), [Supabase Data API](https://supabase.com/docs/guides/api), [Vercel Flask](https://vercel.com/docs/frameworks/backend/flask).
+
+## Quatro avaliadores oficiais (12/10/2026)
+
+A banca agora dispõe de apenas quatro perfis: avaliador01 (DATEN), avaliador02 (SVATECH), avaliador03 (Prof. Luiz, FIAP) e avaliador04 (Prof. Roberto, FIAP). Coordenação é acesso separado, não conta como avaliador.
+
+O login, gerenciamento de contas, importação manual e ranking consideram somente esses quatro avaliadores. Qualquer nota antiga do quinto perfil permanece armazenada para auditoria, mas não compõe a média oficial.
+
+Execute no SQL Editor do Supabase do NEXT a migração [20261012_quatro_avaliadores.sql](supabase/migrations/20261012_quatro_avaliadores.sql) para desativar a conta avaliador05 sem apagá-la. O aplicativo já impede novos acessos desse usuário mesmo antes da migração.

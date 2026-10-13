@@ -34,8 +34,15 @@ JUDGE_IDENTITIES = {
     "avaliador02": "Avaliador 2 — SVATECH",
     "avaliador03": "Avaliador 3 — Prof. Luiz (FIAP)",
     "avaliador04": "Avaliador 4 — Prof. Roberto (FIAP)",
-    "avaliador05": "Avaliador 5 — Reserva / a definir",
 }
+
+def official_judges():
+    """Quatro perfis oficiais: todos os demais ficam fora do ranking e das fichas."""
+    return [record(u) for u in select(
+        "banca_usuarios",
+        {"papel": "eq.judge", "ativo": "eq.true"},
+        order="username.asc"
+    ) if u.get("username") in JUDGE_IDENTITIES]
 
 def evaluator_label(user):
     """Identificação conferível pelo login autenticado, não por dado enviado no formulário."""
@@ -314,7 +321,7 @@ def login_required(fn):
     @wraps(fn)
     def wrapped(*args, **kwargs):
         u = get_user()
-        if not u or not u.active:
+        if not u or not u.active or (u.role == "judge" and u.username not in JUDGE_IDENTITIES):
             session.clear()
             return redirect(url_for("login"))
         return fn(*args, **kwargs)
@@ -390,7 +397,8 @@ def login():
         password = request.form.get("password", "")
         u = one("banca_usuarios", username=username)
         locked = u and u.locked_until and u.locked_until > now()
-        valid = u and u.active and not locked and check_password_hash(u.password_hash, password)
+        allowed = u and (u.role == "admin" or (u.role == "judge" and u.username in JUDGE_IDENTITIES))
+        valid = u and allowed and u.active and not locked and check_password_hash(u.password_hash, password)
         if not valid:
             if u and not locked:
                 fail = int(u.failed_attempts) + 1
@@ -422,8 +430,9 @@ def dashboard():
     user = get_user()
     teams = [record(x) for x in select("banca_equipes", order="id.asc")]
     timers = {x["equipe_id"]: record(x) for x in select("banca_temporizadores")}
-    evaluations = [record(x) for x in all_rows("banca_avaliacoes")]
-    judges = [record(x) for x in select("banca_usuarios", {"papel":"eq.judge","ativo":"eq.true"}, order="nome_exibicao.asc")]
+    judges = official_judges()
+    allowed_ids = {u.id for u in judges}
+    evaluations = [record(x) for x in all_rows("banca_avaliacoes") if x["usuario_id"] in allowed_ids]
     rows = []
     for t in teams:
         scores = [score(e) for e in evaluations if e.team_id == t.id]
@@ -442,9 +451,10 @@ def build_ranking():
     recebem a mesma posição; sem critério de desempate artificial.
     """
     teams = [record(t) for t in select("banca_equipes", order="id.asc")]
-    evaluations = all_rows("banca_avaliacoes")
-    active_judges = select("banca_usuarios", {"papel": "eq.judge", "ativo": "eq.true"})
-    expected = len(active_judges)
+    active_judges = official_judges()
+    allowed_ids = {u.id for u in active_judges}
+    evaluations = [e for e in all_rows("banca_avaliacoes") if e["usuario_id"] in allowed_ids]
+    expected = len(JUDGE_IDENTITIES)
     votes = {}
     for e in evaluations:
         votes.setdefault(e["equipe_id"], []).append(e)
@@ -621,16 +631,19 @@ def lock_team(group):
 @app.post("/admin/judges")
 @admin_required
 def add_judge():
-    name = request.form.get("display_name","").strip()
-    username = request.form.get("username","").strip().lower()
-    if not 2 <= len(name) <= 120 or not re.fullmatch(r"[a-z0-9._-]{3,40}", username):
-        flash("Identificador deve conter de 3 a 40 caracteres simples.", "error")
+    username = request.form.get("username", "").strip().lower()
+    if username not in JUDGE_IDENTITIES:
+        flash("A banca possui somente quatro avaliadores oficiais.", "error")
         return redirect(url_for("dashboard"))
+    if one("banca_usuarios", username=username):
+        flash("Este avaliador já está cadastrado.", "error")
+        return redirect(url_for("dashboard"))
+    name = JUDGE_IDENTITIES[username]
     password = fast_password()
     try:
         insert("banca_usuarios", {
-            "username":username, "nome_exibicao":name, "papel":"judge",
-            "senha_hash":generate_password_hash(password)
+            "username": username, "nome_exibicao": name, "papel": "judge",
+            "senha_hash": generate_password_hash(password)
         })
         log_event("judge_created", detail=username)
     except SupabaseError as exc:
@@ -644,7 +657,7 @@ def reset_judge(uid):
     u = one("banca_usuarios", id=uid)
     if not u:
         abort(404)
-    if u.role!="judge":
+    if u.role != "judge" or u.username not in JUDGE_IDENTITIES:
         abort(403)
     password = fast_password()
     patch("banca_usuarios", {"senha_hash":generate_password_hash(password),
@@ -683,7 +696,7 @@ def audit_csv():
                     headers={"Content-Disposition":"attachment; filename=NEXT_2026_Auditoria.csv"})
 
 from manual_admin import install_manual_routes
-install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY,evaluator_label)
+install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY,evaluator_label,JUDGE_IDENTITIES)
 
 if __name__=="__main__":
     app.run(debug=not PROD, host="127.0.0.1",port=int(os.getenv("PORT","5000")))

@@ -19,7 +19,7 @@ PARTICIPANTS=("A1","A2","A3","D1","D2")
 VALID={k:({"correto","erro","nao_testado"} if k.startswith("A") else
           {"alerta","falso_aceite","sem_leitura"}) for k in PARTICIPANTS}
 
-def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,secret_key,evaluator_label):
+def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,secret_key,evaluator_label,judge_profiles):
     signer=URLSafeTimedSerializer(app.config["SECRET_KEY"],salt="next-2026-manual-upload-v1")
     def storage(method,path,payload=None,content_type=None):
         if not base_url or not secret_key:raise RuntimeError("Supabase indisponivel")
@@ -35,13 +35,14 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
             raise RuntimeError("Falha no armazenamento privado do Supabase") from exc
 
     def judges():
-        return select("banca_usuarios",{"papel":"eq.judge","ativo":"eq.true"},order="id.asc")
+        return [u for u in select("banca_usuarios",{"papel":"eq.judge","ativo":"eq.true"},order="id.asc")
+                if u.get("username") in judge_profiles]
     def pair(group,judge):
         try:gid=int(group);uid=int(judge)
         except (TypeError,ValueError):abort(400)
         t=one("banca_equipes",id=gid)
         u=one("banca_usuarios",id=uid)
-        if not t or not u or u.role!="judge" or not u.active:abort(404)
+        if not t or not u or u.role!="judge" or not u.active or u.username not in judge_profiles:abort(404)
         return t,u
 
     @app.get("/admin/contingencia")

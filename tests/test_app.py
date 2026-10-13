@@ -60,18 +60,24 @@ def test_ranking_mantem_empates_e_nao_classifica_equipes_sem_notas(module,monkey
         [{"id":1,"nome":"Datacore","estande":"A22","bloqueado":False},
          {"id":2,"nome":"OutBox","estande":"A23","bloqueado":False},
          {"id":3,"nome":"Auditix AI","estande":"A24","bloqueado":False}]
-        if table=="banca_equipes" else [{"id":10},{"id":11}])
+        if table=="banca_equipes" else [
+           {"id":10,"username":"avaliador01","nome_exibicao":"DATEN"},
+           {"id":11,"username":"avaliador02","nome_exibicao":"SVATECH"},
+           {"id":12,"username":"avaliador03","nome_exibicao":"Luiz"},
+           {"id":13,"username":"avaliador04","nome_exibicao":"Roberto"},
+           {"id":14,"username":"avaliador05","nome_exibicao":"Reserva"}])
     evaluations=[
-        {"equipe_id":1,"c1":4,"c2":4,"c3":4},
-        {"equipe_id":1,"c1":5,"c2":5,"c3":4},
-        {"equipe_id":2,"c1":5,"c2":4,"c3":4}
+        {"equipe_id":1,"usuario_id":10,"c1":4,"c2":4,"c3":4},
+        {"equipe_id":1,"usuario_id":11,"c1":5,"c2":5,"c3":4},
+        {"equipe_id":2,"usuario_id":12,"c1":5,"c2":4,"c3":4}
     ]
     monkeypatch.setattr(module,"all_rows",lambda table,**kw:evaluations)
     result=module.build_ranking()
     assert [x["rank"] for x in result["ranking"]]==[1,1,None]
     assert [x["team_id"] for x in result["ranking"]]==[1,2,3]
     assert result["ranking"][0]["average"]==13
-    assert result["ranking"][0]["complete"] is True
+    assert result["ranking"][0]["complete"] is False
+    assert result["expected_judges"] == 4
     assert result["ranking"][1]["complete"] is False
     assert result["ranking"][2]["average"] is None
     assert result["ranking"][0]["name"]=="Datacore"
@@ -200,8 +206,7 @@ def test_identificacao_nominal_dos_avaliadores(module):
         'avaliador01':'Avaliador 1 — DATEN',
         'avaliador02':'Avaliador 2 — SVATECH',
         'avaliador03':'Avaliador 3 — Prof. Luiz (FIAP)',
-        'avaliador04':'Avaliador 4 — Prof. Roberto (FIAP)',
-        'avaliador05':'Avaliador 5 — Reserva / a definir'
+        'avaliador04':'Avaliador 4 — Prof. Roberto (FIAP)'
     }
     for username,label in expected.items():
         assert module.evaluator_label(SimpleNamespace(
@@ -303,3 +308,39 @@ def test_rpc_nao_encontrada_indica_migracao(module, monkeypatch):
     monkeypatch.setattr(module, "urlopen", fake_urlopen)
     with pytest.raises(module.SupabaseError, match="migração"):
         module.rpc("banca_salvar_avaliacao",{"p_equipe":1})
+
+
+def test_somente_quatro_avaliadores_oficiais_no_login(module,monkeypatch):
+    assert list(module.JUDGE_IDENTITIES)==["avaliador01","avaliador02","avaliador03","avaliador04"]
+    page=module.app.test_client().get("/login").get_data(as_text=True)
+    assert "avaliador04" in page
+    assert "avaliador05" not in page
+    monkeypatch.setattr(module,"init_admin",lambda:None)
+    from types import SimpleNamespace
+    from werkzeug.security import generate_password_hash
+    fifth=SimpleNamespace(id=5,username="avaliador05",role="judge",
+        password_hash=generate_password_hash("avaliador05"),active=True,
+        locked_until=None,failed_attempts=0)
+    monkeypatch.setattr(module,"one",lambda table,**kw:fifth if table=="banca_usuarios" else None)
+    monkeypatch.setattr(module,"patch",lambda *a,**kw:None)
+    client=module.app.test_client()
+    client.get("/login")
+    with client.session_transaction() as ses:
+        csrf=ses["csrf_token"]
+    res=client.post("/login",data={"csrf_token":csrf,"username":"avaliador05","password":"avaliador05"})
+    assert res.status_code == 401
+
+
+def test_quinta_nota_antiga_nao_entra_no_ranking(module,monkeypatch):
+    def fake_select(table,*args,**kwargs):
+        if table=="banca_equipes":
+            return [{"id":1,"nome":"Datacore","estande":"A22","bloqueado":False}]
+        return [{"id":i,"username":"avaliador%02d"%i,"nome_exibicao":str(i)} for i in range(1,6)]
+    monkeypatch.setattr(module,"select",fake_select)
+    notes=[{"equipe_id":1,"usuario_id":i,"c1":4,"c2":4,"c3":4} for i in range(1,5)]
+    notes.append({"equipe_id":1,"usuario_id":5,"c1":0,"c2":0,"c3":0})
+    monkeypatch.setattr(module,"all_rows",lambda table,**kw:notes)
+    ranking=module.build_ranking()["ranking"][0]
+    assert ranking["evaluations"]==4
+    assert ranking["average"]==12
+    assert ranking["complete"] is True
