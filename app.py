@@ -198,6 +198,12 @@ def call(method, path, params=None, payload=None, prefer=None):
             "Supabase REST falhou: method=%s endpoint=%s http=%s sqlstate=%s message=%s",
             method, path, exc.code, code, backend_message[:180]
         )
+        if code == "21000" and "banca_limpar_avaliacoes" in path and "delete requires a where clause" in normalized:
+            raise SupabaseError(
+                "O Supabase bloqueou a limpeza sem filtro WHERE. "
+                "Execute a migração 20261013_corrigir_delete_com_where.sql "
+                "no SQL Editor do NEXT 2026 e tente novamente."
+            )
         if code == "21000" and "banca_limpar_avaliacoes" in path:
             # Apresentar a mensagem PostgreSQL SOMENTE neste fluxo admin.
             # SQLSTATE 21000 não é falha de login nem função ausente:
