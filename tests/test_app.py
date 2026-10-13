@@ -527,3 +527,20 @@ def test_erro_21000_na_limpeza_mostra_detalhe_e_orienta_diagnostico(module,monke
         })
     assert "more than one row returned" in str(failure.value)
     assert "20261013_diagnosticar_erro_21000.sql" in str(failure.value)
+
+def test_erro_21000_delete_sem_where_orienta_migracao_correta(module, monkeypatch):
+    import io
+    import json
+    import pytest
+    from urllib.error import HTTPError
+    monkeypatch.setattr(module, "SUPABASE_URL", "https://iwfqmdsrourtdvrgiums.supabase.co")
+    monkeypatch.setattr(module, "SUPABASE_KEY", "sb_secret_test")
+    def fail_delete(req, timeout=12):
+        response=json.dumps({"code":"21000","message":"DELETE requires a WHERE clause"}).encode()
+        raise HTTPError(req.full_url,400,"Bad Request",{},io.BytesIO(response))
+    monkeypatch.setattr(module,"urlopen",fail_delete)
+    with pytest.raises(module.SupabaseError,match="20261013_corrigir_delete_com_where.sql"):
+        module.rpc("banca_limpar_avaliacoes",{
+            "p_admin":1,"p_equipe":None,"p_confirmacao":"APAGAR NOTAS"
+        })
+
