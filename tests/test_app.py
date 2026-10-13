@@ -504,3 +504,26 @@ def test_exclusao_erro_supabase_informa_migracao_sem_apagar(module,monkeypatch):
     with client.session_transaction() as sess:
         alerts=sess.get("_flashes",[])
     assert any("20261012_corrigir_limpeza_historico.sql" in msg for _category,msg in alerts)
+
+
+def test_erro_21000_na_limpeza_mostra_detalhe_e_orienta_diagnostico(module,monkeypatch):
+    import io
+    import json
+    import pytest
+    from urllib.error import HTTPError
+    monkeypatch.setattr(module,"SUPABASE_URL","https://iwfqmdsrourtdvrgiums.supabase.co")
+    monkeypatch.setattr(module,"SUPABASE_KEY","sb_secret_test")
+    def fake_urlopen(req,timeout=12):
+        payload=json.dumps({
+            "code":"21000",
+            "message":"more than one row returned by a subquery used as an expression",
+            "details":"contexto de teste de cardinalidade"
+        }).encode()
+        raise HTTPError(req.full_url,400,"Bad Request",{},io.BytesIO(payload))
+    monkeypatch.setattr(module,"urlopen",fake_urlopen)
+    with pytest.raises(module.SupabaseError,match="Falha SQL 21000") as failure:
+        module.rpc("banca_limpar_avaliacoes",{
+            "p_admin":1,"p_equipe":None,"p_confirmacao":"APAGAR NOTAS"
+        })
+    assert "more than one row returned" in str(failure.value)
+    assert "20261013_diagnosticar_erro_21000.sql" in str(failure.value)
