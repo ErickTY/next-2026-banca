@@ -200,7 +200,12 @@ def call(method, path, params=None, payload=None, prefer=None):
         )
         if exc.code in (401, 403):
             raise SupabaseError("Acesso ao Supabase não autorizado. A coordenação deve conferir a chave privada no Vercel.")
-        if code == "PGRST202" or "could not find the function" in normalized:
+        if (code == "PGRST202" or "could not find the function" in normalized):
+            if "banca_limpar_avaliacoes" in path:
+                raise SupabaseError(
+                    "A função de limpeza do histórico não foi encontrada no Supabase. "
+                    "Execute o SQL 20261012_corrigir_limpeza_historico.sql."
+                )
             raise SupabaseError(
                 "A função de avaliação não foi encontrada no Supabase. "
                 "A coordenação deve executar a migração dos cinco participantes."
@@ -727,7 +732,7 @@ def audit_csv():
                     headers={"Content-Disposition":"attachment; filename=NEXT_2026_Auditoria.csv"})
 
 from manual_admin import install_manual_routes
-install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY,evaluator_label,JUDGE_IDENTITIES)
+install_manual_routes(app,admin_required,one,select,rpc,get_user,SUPABASE_URL,SUPABASE_KEY,evaluator_label,JUDGE_IDENTITIES,SupabaseError)
 
 if __name__=="__main__":
     app.run(debug=not PROD, host="127.0.0.1",port=int(os.getenv("PORT","5000")))
