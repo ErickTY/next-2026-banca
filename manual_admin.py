@@ -19,7 +19,7 @@ PARTICIPANTS=("A1","A2","A3","D1","D2")
 VALID={k:({"correto","erro","nao_testado"} if k.startswith("A") else
           {"alerta","falso_aceite","sem_leitura"}) for k in PARTICIPANTS}
 
-def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,secret_key,evaluator_label,judge_profiles):
+def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,secret_key,evaluator_label,judge_profiles,SupabaseError):
     signer=URLSafeTimedSerializer(app.config["SECRET_KEY"],salt="next-2026-manual-upload-v1")
     def storage(method,path,payload=None,content_type=None):
         if not base_url or not secret_key:raise RuntimeError("Supabase indisponivel")
@@ -168,10 +168,18 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
         try:team=None if request.form.get("group")=="all" else int(request.form.get("group"))
         except (ValueError,TypeError):abort(400)
         if team is not None and not 1<=team<=9:abort(400)
-        try:result=rpc("banca_limpar_avaliacoes",{
-            "p_admin":u.id,"p_equipe":team,"p_confirmacao":"APAGAR NOTAS"})
+        try:
+            result=rpc("banca_limpar_avaliacoes",{
+                "p_admin":u.id,"p_equipe":team,"p_confirmacao":"APAGAR NOTAS"})
+        except SupabaseError as exc:
+            # O cliente Supabase fornece uma orientação segura e específica
+            # (função ausente, permissão, indisponibilidade ou bloqueio).
+            log.warning("Falha na limpeza do histórico pelo Supabase: %s", exc)
+            flash(str(exc), "error")
+            return redirect(url_for("manual_dashboard"))
         except Exception:
-            flash("Nao foi possivel limpar as notas; confira a migracao no Supabase.","error")
+            log.exception("Falha inesperada na limpeza de avaliações")
+            flash("Falha interna ao limpar notas. Consulte os logs do Vercel.", "error")
             return redirect(url_for("manual_dashboard"))
         flash(f'{result.get("apagadas",0)} notas removidas. Auditoria e fotografias preservadas.',"success")
         return redirect(url_for("manual_dashboard"))
