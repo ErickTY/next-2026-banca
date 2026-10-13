@@ -23,7 +23,9 @@ triggers AS (
   SELECT
     'GATILHO'::text AS componente,
     r.relname || '.' || t.tgname AS nome,
-    pg_get_triggerdef(t.oid, true) AS detalhe
+    pg_get_triggerdef(t.oid, true) ||
+    E'\n--- FUNCAO DO GATILHO ---\n' ||
+    left(pg_get_functiondef(t.tgfoid), 12000) AS detalhe
   FROM pg_trigger t
   JOIN rels r ON r.oid = t.tgrelid
   WHERE NOT t.tgisinternal
