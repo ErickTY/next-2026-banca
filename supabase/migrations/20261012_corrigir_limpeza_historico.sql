@@ -38,12 +38,12 @@ BEGIN
         RAISE EXCEPTION 'Equipe não encontrada';
     END IF;
 
-    IF p_equipe IS NULL THEN
-        DELETE FROM public.banca_avaliacoes;
-    ELSE
-        DELETE FROM public.banca_avaliacoes
-         WHERE equipe_id = p_equipe;
-    END IF;
+    -- Um WHERE explícito evita o bloqueio de DELETE sem filtro.
+    DELETE FROM public.banca_avaliacoes
+     WHERE equipe_id IN (
+         SELECT e.id FROM public.banca_equipes AS e
+         WHERE p_equipe IS NULL OR e.id = p_equipe
+     );
 
     GET DIAGNOSTICS total_apagadas = ROW_COUNT;
 
