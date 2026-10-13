@@ -321,7 +321,7 @@ def login_required(fn):
     @wraps(fn)
     def wrapped(*args, **kwargs):
         u = get_user()
-        if not u or not u.active or (u.role == "judge" and u.username not in JUDGE_IDENTITIES):
+        if not u or not u.active or (u.role == "judge" and getattr(u, "username", None) not in JUDGE_IDENTITIES):
             session.clear()
             return redirect(url_for("login"))
         return fn(*args, **kwargs)
