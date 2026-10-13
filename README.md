@@ -153,3 +153,9 @@ no SQL Editor **do projeto NEXT 2026**. A migração apenas atualiza a função 
 
 Após a migração, no painel da coordenação, a escolha **TODAS AS NOTAS** usa um `DELETE` com cláusula `WHERE`, abrangendo apenas as equipes cadastradas. A escolha de um único grupo usa o mesmo filtro, restrito ao grupo. A operação segue protegida pela sessão do administrador, uma confirmação e auditoria, e o backup CSV é opcional.
 
+
+## Câmeras disponibilizadas: sempre 2 (13/10/2026)
+
+Para todos os grupos, **o sistema disponibiliza exatamente duas câmeras**, sendo essa informação fixa e não editável na ficha digital, na revisão de fotografias e nos formulários PDF de contingência. O avaliador informa somente **quantas utilizou (1 ou 2)**. Utilizar uma câmera mantém o bônus de 10%, limitado a 15 pontos.
+
+O servidor Flask ignora qualquer valor `available` enviado pelo navegador e grava `p_disponiveis=2` também nas importações manuais. Não é necessário modificar o Supabase para salvar novas fichas. Dados históricos que tenham sido preenchidos com "1 disponibilizada" podem ser normalizados **opcionalmente**, sem alterar notas ou câmeras efetivamente usadas, executando [20261013_fixar_duas_cameras_disponiveis.sql](supabase/migrations/20261013_fixar_duas_cameras_disponiveis.sql) no Supabase NEXT 2026. A migração também protege contra novos registros com valor diferente de 2.

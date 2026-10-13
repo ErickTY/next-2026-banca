@@ -94,11 +94,10 @@
           </select>
         </label>
       {% endfor %}
-      {% for key,label in [('available','Câmeras disponíveis'),('used','Câmeras utilizadas')] %}
-        <label>{{ label }}
-          <select name="{{ key }}" required><option value="" selected>Revisar</option><option value="1">1</option><option value="2">2</option></select>
-        </label>
-      {% endfor %}
+      <div class="manual-camera-fixed" role="note"><strong>Câmeras disponibilizadas</strong><span>2 (fixas para todos os grupos)</span></div>
+      <label>Câmeras utilizadas
+        <select name="used" required><option value="" selected>Revisar</option><option value="1">1</option><option value="2">2</option></select>
+      </label>
     </div>
     <label>Transcrição das observações do papel
       <textarea name="notes" rows="3" maxlength="3000" placeholder="Registre especialmente falhas, testes não realizados e notas 0, 1 ou 2."></textarea>

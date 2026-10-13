@@ -15,7 +15,6 @@ ROWS=[
  ("c1",list(range(6)),[(310+43*i,427) for i in range(6)]),
  ("c2",list(range(6)),[(310+43*i,389) for i in range(6)]),
  ("c3",list(range(6)),[(310+43*i,351) for i in range(6)]),
- ("available",[1,2],[(380,301),(470,301)]),
  ("used",[1,2],[(380,266),(470,266)])
 ]
 
@@ -52,10 +51,12 @@ def render_pdf(group_id,group_name,stand,username,judge_name):
         for n,(x,yy) in enumerate(points):
             c.circle(x,yy,9,stroke=1,fill=0)
             c.setFont("Helvetica-Bold",8);c.drawCentredString(x,yy-20,str(n))
-    c.setFont("Helvetica-Bold",11);c.drawString(55,324,"3. CAMERAS - MARQUE 1 EM CADA LINHA")
+    c.setFont("Helvetica-Bold",11);c.drawString(55,324,"3. CAMERAS - MARQUE SOMENTE AS UTILIZADAS")
+    c.setFont("Helvetica-Bold",10)
+    c.drawString(62,297,"Disponibilizadas: 2 (fixas para todos os grupos)")
     for k,_,points in ROWS[8:]:
         y=points[0][1];c.setFont("Helvetica",10)
-        c.drawString(62,y-4,"Disponibilizadas" if k=="available" else "Utilizadas")
+        c.drawString(62,y-4,"Utilizadas")
         for num,(x,yy) in zip((1,2),points):
             c.circle(x,yy,9,stroke=1,fill=0)
             c.setFont("Helvetica-Bold",8);c.drawCentredString(x,yy-19,str(num))
@@ -137,6 +138,9 @@ def read_marks(source):
             answers[field]=None
             warnings.append(field+(": marca fraca ou ausente" if not candidates else ": multiplas marcas"))
         confidences[field]=[round(v,3) for v in ratios]
+    # Disponibilizadas = 2 é constante, NÃO uma opção lida da fotografia.
+    # Fichas antigas com esse campo também são interpretadas como 2.
+    answers["available"] = 2
     return {"answers":answers,"warnings":warnings,
             "scores":confidences,"recognized":sum(v is not None for v in answers.values()),
-            "total":len(ROWS)}
+            "total":len(ROWS) + 1}

@@ -121,11 +121,12 @@ def install_manual_routes(app,admin_required,one,select,rpc,get_user,base_url,se
             return jsonify(ok=False,error="Confira todos os cinco participantes."),400
         try:
             c1,c2,c3=[int(request.form.get("c"+str(i))) for i in (1,2,3)]
-            available=int(request.form.get("available"))
+            # A ficha em papel e a aplicação usam 2 câmeras disponíveis.
+            available=2
             used=int(request.form.get("used"))
         except (ValueError,TypeError):
             return jsonify(ok=False,error="Preencha notas e quantidade de cameras."),400
-        if not all(0<=x<=5 for x in (c1,c2,c3)) or not 1<=used<=available<=2:
+        if not all(0<=x<=5 for x in (c1,c2,c3)) or used not in (1,2):
             return jsonify(ok=False,error="Notas ou cameras invalidas."),400
         notes=request.form.get("notes","").strip()[:3000]
         replacing=request.form.get("replace")=="true"

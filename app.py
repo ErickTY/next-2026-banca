@@ -581,14 +581,16 @@ def evaluate(group):
             return invalid("Edição bloqueada pela coordenação.")
         try:
             scores = [int(request.form.get("c%d" % i, "-1")) for i in (1, 2, 3)]
-            available = int(request.form.get("available", "-1"))
+            # Duas câmeras são fornecidas a TODAS as equipes.
+            # Não confiar no campo 'available' enviado pelo navegador.
+            available = 2
             used = int(request.form.get("used", "-1"))
         except (ValueError, TypeError):
             return invalid("Preencha as três notas e a quantidade de câmeras.")
         if not all(0 <= x <= 5 for x in scores):
             return invalid("Cada nota deve estar entre 0 e 5.")
-        if not (1 <= used <= available <= 2):
-            return invalid("As câmeras utilizadas não podem exceder as disponíveis.")
+        if used not in (1, 2):
+            return invalid("Selecione uma ou duas câmeras utilizadas.")
 
         # Não presumir detecção correta nem teste concluído: cada resultado
         # deve ser selecionado explicitamente pelo avaliador.

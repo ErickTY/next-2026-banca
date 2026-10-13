@@ -262,8 +262,9 @@ def test_ficha_em_branco_nao_vira_avaliacao():
             drawing.ellipse((px-18,py-18,px+18,py+18),outline="black",width=2)
     binary=BytesIO();paper.save(binary,format="JPEG",quality=90)
     result=read_marks(binary.getvalue())
-    assert result["recognized"]==0
-    assert all(v is None for v in result["answers"].values())
+    assert result["recognized"]==1  # A única informação fixa é "2 disponibilizadas".
+    assert result["answers"]["available"]==2
+    assert all(v is None for k,v in result["answers"].items() if k!="available")
 
 
 def test_contingencia_exclusiva_para_admin(module,monkeypatch):
@@ -544,3 +545,33 @@ def test_erro_21000_delete_sem_where_orienta_migracao_correta(module, monkeypatc
             "p_admin":1,"p_equipe":None,"p_confirmacao":"APAGAR NOTAS"
         })
 
+
+
+def test_disponibilizadas_sempre_duas_mesmo_se_navegador_envia_uma(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,"get_user",lambda:SimpleNamespace(
+        id=2,username="avaliador01",role="judge",active=True))
+    monkeypatch.setattr(module,"get_team",lambda n:SimpleNamespace(id=n,locked=False))
+    saved=[]
+    monkeypatch.setattr(module,"rpc",lambda name,payload:saved.append(payload))
+    client=module.app.test_client()
+    with client.session_transaction() as sess:sess["csrf_token"]="valid"
+    data={"csrf_token":"valid","c1":"4","c2":"3","c3":"5","available":"1","used":"2",
+          "A1":"correto","A2":"correto","A3":"correto","D1":"alerta","D2":"alerta"}
+    resp=client.post("/evaluate/1",data=data,headers={"X-Requested-With":"XMLHttpRequest"})
+    assert resp.status_code==200
+    assert saved[0]["p_disponiveis"]==2
+    assert saved[0]["p_usadas"]==2
+    data.pop("available")  # Campo indisponível na interface nova.
+    data["used"]="1"
+    resp=client.post("/evaluate/1",data=data,headers={"X-Requested-With":"XMLHttpRequest"})
+    assert resp.status_code==200
+    assert saved[1]["p_disponiveis"]==2
+    assert saved[1]["p_usadas"]==1
+    assert resp.json["bonus_percent"]==10
+
+
+def test_pdf_contingencia_duas_fixas_nao_tem_bolinha_de_disponiveis():
+    from manual_forms import ROWS
+    assert [field for field,_,_ in ROWS if field=="available"]==[]
+    assert [field for field,_,_ in ROWS if field=="used"]==["used"]

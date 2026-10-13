@@ -77,16 +77,10 @@
     <section class="panel quick-details" aria-labelledby="quick-details-title">
       <div class="quick-section-head"><div><div class="eyebrow">ETAPA 3</div><h2 id="quick-details-title">Câmeras utilizadas</h2></div></div>
       <div class="quick-camera-grid">
-        <fieldset class="quick-criterion">
-          <legend><strong>Disponibilizadas</strong></legend>
-          <div class="quick-score-options">
-            {% for n in (1,2) %}
-            <label class="quick-score-option"><input type="radio" name="available" value="{{ n }}"
-              {{ 'checked' if evaluation and evaluation.cameras_available==n else '' }}
-              {{ 'disabled' if team.locked else '' }} required><span>{{ n }}</span></label>
-            {% endfor %}
-          </div>
-        </fieldset>
+        <div class="quick-camera-fixed" role="note" aria-label="Duas câmeras disponibilizadas para todos os grupos">
+          <strong>Disponibilizadas</strong>
+          <div class="quick-camera-fixed-value"><b>2</b><small>Fixas para todos os grupos</small></div>
+        </div>
         <fieldset class="quick-criterion">
           <legend><strong>Utilizadas</strong></legend>
           <div class="quick-score-options">

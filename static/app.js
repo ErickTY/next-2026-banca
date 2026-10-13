@@ -148,7 +148,7 @@ function updateTotal(){
   const scoreCount=fastForm.querySelector('[data-score-count]');
   if(scoreCount)scoreCount.textContent=scoresCompleted+'/3';
 
-  const complete=completed===5&&scoresCompleted===3&&!!fastForm.querySelector('input[name="available"]:checked')&&!!fastForm.querySelector('input[name="used"]:checked');
+  const complete=completed===5&&scoresCompleted===3&&!!fastForm.querySelector('input[name="used"]:checked');
   const progress=document.querySelector('#quick-form-progress');
   if(progress)progress.textContent=complete?'Ficha preenchida · confira e salve':'Selecione 5 participantes, 3 notas e câmeras';
 }
@@ -175,9 +175,8 @@ if(fastForm){
     updateTotal();
     if(saveInProgress||!fastForm.reportValidity())return;
     const used=Number(fastForm.querySelector('input[name="used"]:checked')?.value||0);
-    const available=Number(fastForm.querySelector('input[name="available"]:checked')?.value||0);
-    if(used>available){
-      if(quickSaveStatus)quickSaveStatus.textContent='As câmeras usadas não podem exceder as disponíveis.';
+    if(used!==1&&used!==2){
+      if(quickSaveStatus)quickSaveStatus.textContent='Selecione quantas câmeras foram utilizadas.';
       return;
     }
     saveInProgress=true;
