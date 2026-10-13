@@ -144,3 +144,12 @@ Execute no SQL Editor do Supabase do NEXT a migração [20261012_quatro_avaliado
 A instalação inicial de contingência pode ter deixado a função de exclusão ausente.
 Execute **somente** [supabase/migrations/20261012_corrigir_limpeza_historico.sql](supabase/migrations/20261012_corrigir_limpeza_historico.sql) no SQL Editor do projeto NEXT 2026.
 Este script apenas cria/atualiza a função administrativa, concede permissões à chave privada do servidor e recarrega o cache PostgREST; **não apaga avaliações ao ser executado**. A remoção continua exigindo o comando do administrador autenticado na aplicação, com confirmação única. A interface passa a mostrar erros específicos em vez do aviso genérico.
+
+### Correção definitiva da exclusão de todas as notas (SQLSTATE 21000)
+
+O Supabase deste projeto rejeita `DELETE FROM public.banca_avaliacoes;` sem `WHERE`.
+Execute uma vez [20261013_corrigir_delete_com_where.sql](supabase/migrations/20261013_corrigir_delete_com_where.sql)
+no SQL Editor **do projeto NEXT 2026**. A migração apenas atualiza a função administrativa; **não apaga avaliações ao ser executada**.
+
+Após a migração, no painel da coordenação, a escolha **TODAS AS NOTAS** usa um `DELETE` com cláusula `WHERE`, abrangendo apenas as equipes cadastradas. A escolha de um único grupo usa o mesmo filtro, restrito ao grupo. A operação segue protegida pela sessão do administrador, uma confirmação e auditoria, e o backup CSV é opcional.
+
