@@ -506,14 +506,20 @@ def build_ranking():
     rows.sort(key=lambda r: (not bool(r["evaluations"]),
                             -(r["_sum"] / r["evaluations"]) if r["evaluations"] else 0,
                             r["team_id"]))
-    last_scored = None
+    last_sum = None
+    last_count = None
     last_rank = None
     for position, row in enumerate(rows, 1):
-        if row["evaluations"]:
-            if last_scored is None or row["_sum"] * last_scored["evaluations"] != last_scored["_sum"] * row["evaluations"]:
+        count = row["evaluations"]
+        if count:
+            current_sum = row["_sum"]
+            # Guardar os totais da equipe anterior ANTES de remover o campo
+            # temporário. O código anterior acessava last_scored["_sum"]
+            # depois do "del", causando KeyError e HTTP 500 com >=2 equipes.
+            if last_sum is None or current_sum * last_count != last_sum * count:
                 last_rank = position
             row["rank"] = last_rank
-            last_scored = row
+            last_sum, last_count = current_sum, count
         del row["_sum"]
 
     return {"ranking": rows, "expected_judges": expected,
