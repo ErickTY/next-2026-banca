@@ -87,11 +87,12 @@ BEGIN
    RAISE EXCEPTION 'Equipe desconhecida';
  END IF;
  -- Exclui do ranking; mantem trilha de auditoria e fotos para rastreabilidade.
- IF p_equipe IS NULL THEN
-   DELETE FROM public.banca_avaliacoes;
- ELSE
-   DELETE FROM public.banca_avaliacoes WHERE equipe_id=p_equipe;
- END IF;
+ -- Compatível com Supabase pg_safeupdate: DELETE sempre com WHERE.
+ DELETE FROM public.banca_avaliacoes
+ WHERE equipe_id IN (
+   SELECT e.id FROM public.banca_equipes AS e
+   WHERE p_equipe IS NULL OR e.id = p_equipe
+ );
  GET DIAGNOSTICS n=ROW_COUNT;
  INSERT INTO public.banca_auditoria(usuario_id,equipe_id,evento,detalhe)
  VALUES(p_admin,p_equipe,'evaluation_history_cleared',
