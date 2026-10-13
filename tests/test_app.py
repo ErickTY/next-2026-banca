@@ -88,7 +88,7 @@ def test_reset_exclusivo_do_admin(module,monkeypatch):
     c.get("/login")
     with c.session_transaction() as sess:
         token=sess["csrf_token"]
-    user=SimpleNamespace(id=10,role="judge",active=True,display_name="Avaliador")
+    user=SimpleNamespace(id=10,role="judge",username="avaliador01",active=True,display_name="Avaliador")
     monkeypatch.setattr(module,"get_user",lambda:user)
     monkeypatch.setattr(module,"get_team",lambda team:SimpleNamespace(id=team))
     invoked=[]
@@ -107,7 +107,7 @@ def test_reset_exclusivo_do_admin(module,monkeypatch):
 
 def test_api_resultados_nega_avaliador(module,monkeypatch):
     from types import SimpleNamespace
-    user=SimpleNamespace(id=10,role="judge",active=True,display_name="Avaliador")
+    user=SimpleNamespace(id=10,role="judge",username="avaliador01",active=True,display_name="Avaliador")
     monkeypatch.setattr(module,"get_user",lambda:user)
     c=module.app.test_client()
     assert c.get("/api/results").status_code==403
@@ -135,7 +135,7 @@ def test_ajax_timer_silencioso(module,monkeypatch):
 
 def test_ajax_reset_nega_avaliador(module,monkeypatch):
     from types import SimpleNamespace
-    monkeypatch.setattr(module,'get_user',lambda:SimpleNamespace(id=2,role='judge',active=True))
+    monkeypatch.setattr(module,'get_user',lambda:SimpleNamespace(id=2,role='judge',username='avaliador01',active=True))
     c=module.app.test_client()
     c.get('/login')
     with c.session_transaction() as sess:
@@ -154,7 +154,7 @@ def test_senha_rapida_tem_dez_caracteres(module):
 
 def test_avaliacao_rapida_pede_observacao_explicita_e_salva_sem_reload(module,monkeypatch):
     from types import SimpleNamespace
-    monkeypatch.setattr(module,'get_user',lambda:SimpleNamespace(id=7,role='judge',active=True))
+    monkeypatch.setattr(module,'get_user',lambda:SimpleNamespace(id=7,role='judge',username='avaliador01',active=True))
     monkeypatch.setattr(module,'get_team',lambda grp:SimpleNamespace(id=grp,locked=False))
     saved=[]
     monkeypatch.setattr(module,'rpc',lambda name,payload:saved.append((name,payload)))
@@ -181,7 +181,7 @@ def test_exatamente_tres_autorizados_e_dois_desconhecidos(module,monkeypatch):
     from types import SimpleNamespace
     assert module.PARTICIPANTS == ("A1", "A2", "A3", "D1", "D2")
     assert "A4" not in module.PARTICIPANTS
-    monkeypatch.setattr(module, "get_user", lambda:SimpleNamespace(id=2, role="judge", active=True))
+    monkeypatch.setattr(module, "get_user", lambda:SimpleNamespace(id=2, role="judge", username="avaliador01", active=True))
     monkeypatch.setattr(module, "get_team", lambda grp:SimpleNamespace(id=grp, locked=False))
     calls=[]
     monkeypatch.setattr(module,"rpc",lambda name,data:calls.append((name,data)))
