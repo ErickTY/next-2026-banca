@@ -393,3 +393,42 @@ def test_sem_observacoes_tecnicas_obrigatorias(module,monkeypatch):
     assert r.status_code==200
     assert r.json["ok"] is True
     assert calls[0]["p_notas"]==""
+
+
+def test_ranking_varios_grupos_ao_vivo_sem_keyerror(module,monkeypatch):
+    """Regressao do erro 500: comparar 2+ equipes nao pode ler _sum apagado."""
+    from types import SimpleNamespace
+    teams=[
+        {"id":1,"nome":"Datacore","estande":"A22","bloqueado":False},
+        {"id":2,"nome":"OutBox","estande":"A23","bloqueado":False},
+        {"id":3,"nome":"Auditix AI","estande":"A24","bloqueado":False},
+        {"id":4,"nome":"Next Level","estande":"A25","bloqueado":False},
+        {"id":5,"nome":"DataKeeper","estande":"A26","bloqueado":False}
+    ]
+    judges=[{"id":i,"username":f"avaliador{i:02d}","nome_exibicao":str(i)} for i in range(1,5)]
+    monkeypatch.setattr(module,"select",lambda table,*args,**kwargs:
+        teams if table=="banca_equipes" else judges)
+    # A/B empate com quantidades distintas; C menor pontuacao; D ainda sem notas.
+    votes=[
+        {"equipe_id":1,"usuario_id":1,"c1":4,"c2":4,"c3":4,"cameras_usadas":2},
+        {"equipe_id":2,"usuario_id":2,"c1":4,"c2":4,"c3":4,"cameras_usadas":2},
+        {"equipe_id":2,"usuario_id":3,"c1":4,"c2":4,"c3":4,"cameras_usadas":2},
+        {"equipe_id":3,"usuario_id":4,"c1":2,"c2":2,"c3":2,"cameras_usadas":1},
+        {"equipe_id":5,"usuario_id":1,"c1":1,"c2":1,"c3":1,"cameras_usadas":2},
+    ]
+    monkeypatch.setattr(module,"all_rows",lambda table,**kw:votes)
+    ranking=module.build_ranking()["ranking"]
+    assert [r["team_id"] for r in ranking]==[1,2,3,5,4]
+    assert [r["rank"] for r in ranking]==[1,1,3,4,None]
+    assert all("_sum" not in row for row in ranking)
+    assert ranking[2]["average"]==6.6
+    # Renderizacao da pagina completa, com mais de uma equipe pontuada.
+    monkeypatch.setattr(module,"get_user",lambda:SimpleNamespace(
+        id=99,username="coordenacao",role="admin",active=True,display_name="Coordenação"))
+    client=module.app.test_client()
+    page=client.get("/admin/results")
+    assert page.status_code==200
+    assert b"Ranking provis" in page.data
+    api=client.get("/api/results")
+    assert api.status_code==200
+    assert [r["rank"] for r in api.json["ranking"]]==[1,1,3,4,None]
