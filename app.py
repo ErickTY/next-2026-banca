@@ -590,7 +590,8 @@ def evaluate(group):
 
     existing = one("banca_avaliacoes", equipe_id=group, usuario_id=user.id)
     if existing:
-        existing.total = score(existing)
+        existing.total = raw_score(existing)
+        existing.adjusted_total = score(existing)
     return render_template("evaluate.html", team=t, evaluation=existing,
                            obs=existing.observations if existing else {},
                            timer=timer_view(get_timer(group)), participants=PARTICIPANTS)
