@@ -467,3 +467,40 @@ def test_exclusao_exige_token_de_confirmacao_no_servidor(module,monkeypatch):
     })
     assert response.status_code==302
     assert calls==[]
+
+
+
+def test_rpc_limpar_historico_ausente_mostra_sql_correto(module,monkeypatch):
+    import io
+    import json
+    import pytest
+    from urllib.error import HTTPError
+    monkeypatch.setattr(module,"SUPABASE_URL","https://iwfqmdsrourtdvrgiums.supabase.co")
+    monkeypatch.setattr(module,"SUPABASE_KEY","sb_secret_test")
+    def fake_urlopen(req,timeout=12):
+        payload=json.dumps({"code":"PGRST202","message":"Could not find the function public.banca_limpar_avaliacoes"}).encode()
+        raise HTTPError(req.full_url,404,"Not Found",{},io.BytesIO(payload))
+    monkeypatch.setattr(module,"urlopen",fake_urlopen)
+    with pytest.raises(module.SupabaseError,match="corrigir_limpeza_historico"):
+        module.rpc("banca_limpar_avaliacoes",{
+            "p_admin":1,"p_equipe":None,"p_confirmacao":"APAGAR NOTAS"
+        })
+
+
+def test_exclusao_erro_supabase_informa_migracao_sem_apagar(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,"get_user",lambda:SimpleNamespace(
+        id=1,username="coordenacao",role="admin",active=True))
+    def broken_rpc(*args,**kwargs):
+        raise module.SupabaseError(
+            "A função de limpeza não existe. Execute 20261012_corrigir_limpeza_historico.sql")
+    monkeypatch.setattr(module,"rpc",broken_rpc)
+    client=module.app.test_client()
+    with client.session_transaction() as sess:sess["csrf_token"]="token"
+    response=client.post("/admin/historico/limpar",data={
+        "csrf_token":"token","group":"all","confirmation":"APAGAR NOTAS"
+    })
+    assert response.status_code==302
+    with client.session_transaction() as sess:
+        alerts=sess.get("_flashes",[])
+    assert any("20261012_corrigir_limpeza_historico.sql" in msg for _category,msg in alerts)
