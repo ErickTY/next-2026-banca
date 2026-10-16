@@ -575,3 +575,13 @@ def test_pdf_contingencia_duas_fixas_nao_tem_bolinha_de_disponiveis():
     from manual_forms import ROWS
     assert [field for field,_,_ in ROWS if field=="available"]==[]
     assert [field for field,_,_ in ROWS if field=="used"]==["used"]
+
+def test_creditos_do_desenvolvedor_no_rodape_de_todas_as_paginas(module):
+    client=module.app.test_client()
+    response=client.get("/login")
+    assert response.status_code == 200
+    page=response.get_data(as_text=True)
+    assert "Prof. Dr. Erick T. Yamamoto" in page
+    assert "SAYAMA GROUP" in page
+    assert 'class="footer-credit"' in page
+

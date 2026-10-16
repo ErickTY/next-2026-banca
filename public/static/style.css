@@ -203,3 +203,13 @@
 .manual-camera-fixed{display:flex;flex-direction:column;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid #455563;background:#1a2935}
 .manual-camera-fixed strong{font-size:12px}.manual-camera-fixed span{font-size:15px;color:#d8f4ff;font-weight:750}
 @media(max-width:600px){.quick-camera-fixed-value{min-height:43px;padding:5px}.quick-camera-fixed-value small{font-size:10px}}
+
+
+/* Créditos de autoria compartilhados por todas as telas da banca. */
+.footer{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px}
+.footer-meta{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 14px;line-height:1.65}
+.footer .footer-meta span{margin-left:0;color:#e7aac2}
+.footer-credit{border-top:1px solid var(--line);padding-top:12px;color:#bdc6d9;font-size:12px;line-height:1.65;text-align:center}
+.footer-credit strong{color:#f4f6fc;font-weight:800}
+.footer-credit strong:last-child{color:var(--pink)}
+@media(max-width:600px){.footer{padding:24px 16px 32px}.footer-meta{flex-direction:column;gap:1px}.footer-credit{font-size:11px}}
