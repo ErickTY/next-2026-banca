@@ -630,6 +630,9 @@ def test_portal_checkbox_somente_um_avaliador(module,monkeypatch):
     })
     assert valid.status_code==302
     assert "/dashboard" in valid.headers["Location"]
+    # Um login valido renova o token CSRF da sessao.
+    with client.session_transaction() as sess:
+        csrf=sess["csrf_token"]
     wrong_role=client.post("/login",data={
         "csrf_token":csrf,"portal_role":"admin",
         "username":"avaliador02","password":"avaliador02"
