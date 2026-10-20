@@ -312,40 +312,33 @@ if PROD:
 
 @app.errorhandler(SupabaseError)
 def api_error(exc):
-    """Indisponibilidade do Supabase não significa schema ausente.
+    """Mostrar falha de conexão com a mesma interface visual do sistema.
 
-    Não propor executar schema.sql: dados e usuários já existem no projeto.
-    A resposta é autocontida para não depender do próprio banco indisponível.
+    Um erro na consulta de usuários pode acontecer durante o processamento
+    da própria página. Limpar o usuário em cache impede uma segunda consulta
+    ao Supabase enquanto apresentamos a mensagem ao avaliador.
     """
-    log.error("Falha do serviço da banca: %s", exc)
-    from html import escape
-    path = request.path if request.path in ("/login", "/", "/avaliador", "/coordenacao") else "/"
-    retry_url = escape(path, quote=True)
-    description = escape(str(exc))
-    return (
-        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<title>Conexão temporariamente indisponível | NEXT 2026</title>'
-        '<style>body{margin:0;min-height:100vh;background:#090b10;color:#f5f5fa;'
-        'font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;padding:18px}'
-        'main{width:min(100%,660px);padding:28px;border:1px solid #383140;'
-        'border-radius:18px;background:#12151d}small{color:#ff4588;letter-spacing:2px;font-weight:900}'
-        'h1{font-size:clamp(25px,5vw,36px);line-height:1.18;margin:15px 0}'
-        'p{color:#c1c5d1}a{display:inline-block;background:#ed145b;color:white;'
-        'border-radius:10px;padding:12px 20px;font-weight:800;text-decoration:none}'
-        'details{margin-top:20px;color:#a7adba;font-size:12px}'
-        '</style></head><body><main>'
-        '<small>NEXT 2026 · BANCA DATEN</small>'
-        '<h1>Conexão com a banca temporariamente indisponível</h1>'
-        '<p>O Supabase pode estar reiniciando. Aguarde a conclusão da '
-        'inicialização e tente acessar novamente. Suas avaliações já '
-        'registradas não foram alteradas por esta tentativa.</p>'
-        '<p>Não é necessário executar o arquivo schema.sql.</p>'
-        '<a href="' + retry_url + '">Tentar novamente →</a>'
-        '<details><summary>Informação para a coordenação</summary><p>'
-        + description + '</p></details>'
-        '</main></body></html>', 503
+    log.error("Falha do serviço da banca na rota %s: %s", request.path, exc)
+    g._next_user = None
+    message = (
+        "Supabase indisponível: a conexão com o banco da banca não pôde "
+        "ser concluída. A coordenação deve verificar se o projeto "
+        "NEXT 2026 está ativo. Não execute novamente schema.sql."
     )
+    if request.path.startswith("/api/") or (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.accept_mimetypes.best == "application/json"
+    ):
+        return jsonify(ok=False, setup_required=True, error=message), 503
+
+    # Reusar os estilos próprios do portal em vez de CSS inline, que é
+    # proibido pelo Content-Security-Policy de produção.
+    flash(message, "error")
+    section = "coordenacao" if (
+        request.path.startswith("/coordenacao")
+        or request.form.get("portal_role") == "admin"
+    ) else "avaliador"
+    return render_template("login.html", portal_section=section), 503
 
 @app.before_request
 def csrf_protection():

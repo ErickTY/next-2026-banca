@@ -715,11 +715,40 @@ def test_portal_checkbox_sem_sobreposicao_e_sem_indicadores_duplicados(module):
     assert "form label.banca-judge-choice input[type=checkbox].banca-judge-checkbox" in content
 
 
-def test_supabase_indisponivel_orienta_reativacao_e_nao_executar_sql(module):
-    with module.app.test_request_context("/login"):
-        body,status=module.api_error(module.SupabaseError("Não foi possível conectar à API do Supabase"))
-    assert status==503
-    assert "Conexão com a banca temporariamente indisponível" in body
-    assert "Não é necessário executar o arquivo schema.sql." in body
-    assert 'href="/login"' in body
-    assert "execute o arquivo" not in body
+def test_supabase_indisponivel_orienta_reativacao_e_nao_executar_sql(module,monkeypatch):
+    # Simular falha de banco em uma submissão: formulário continua com o CSS
+    # local, opções dos avaliadores e alerta claro, sem renderizar página branca.
+    def offline(*args,**kwargs):
+        raise module.SupabaseError("Não foi possível conectar à API do Supabase")
+    monkeypatch.setattr(module,"one",offline)
+    client=module.app.test_client()
+    portal=client.get("/login")
+    assert portal.status_code==200
+    with client.session_transaction() as sess: csrf=sess["csrf_token"]
+    response=client.post("/login",data={
+        "csrf_token":csrf,"portal_role":"judge","username":"avaliador01"
+    })
+    assert response.status_code==503
+    html=response.get_data(as_text=True)
+    assert "Supabase indisponível" in html
+    assert "Não execute novamente schema.sql" in html
+    assert "Quem está avaliando?" in html
+    assert "static/style.css" in html
+    assert 'class="banca-judge-checkbox"' in html
+    assert "<style>" not in html
+
+
+def test_erro_supabase_em_api_retorna_json_sem_refazer_consulta(module,monkeypatch):
+    from flask import g
+    # O processamento da página de resultado falhou antes da renderização.
+    # A página de fallback não deve tocar no banco mais uma vez.
+    def offline(*args,**kwargs):
+        raise module.SupabaseError("Sem conexão ao Supabase")
+    monkeypatch.setattr(module,"one",offline)
+    client=module.app.test_client()
+    with client.session_transaction() as sess:sess["uid"]=7
+    result=client.get("/api/state",headers={"Accept":"application/json"})
+    assert result.status_code==503
+    assert result.is_json
+    assert result.json["setup_required"] is True
+
