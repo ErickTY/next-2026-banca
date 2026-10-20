@@ -29,11 +29,11 @@
         {% for username, identity in judge_profiles.items() %}
         <label class="banca-judge-choice">
           <input class="banca-judge-checkbox" type="checkbox" name="username" value="{{ username }}"
+            aria-label="{{ identity }}"
             {{ 'checked' if request.form.get('username')==username else '' }}>
           <span class="banca-judge-box">
             <span class="banca-judge-number">{{ '%02d'|format(loop.index) }}</span>
             <span class="banca-judge-name">Avaliador {{ loop.index }}<small>{{ identity.split(' — ', 1)[1] if ' — ' in identity else identity }}</small></span>
-            <span class="banca-check-indicator" aria-hidden="true">✓</span>
           </span>
         </label>
         {% endfor %}

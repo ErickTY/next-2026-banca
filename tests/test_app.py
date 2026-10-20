@@ -697,3 +697,19 @@ def test_avaliador_inativo_nao_entra_sem_senha(module,monkeypatch):
     assert client.post("/login",data={
         "csrf_token":csrf,"portal_role":"judge","username":"avaliador03"
     }).status_code==401
+
+
+def test_portal_checkbox_sem_sobreposicao_e_sem_indicadores_duplicados(module):
+    """Regression: avaliador possui apenas checkbox nativo e sem input full width."""
+    app=module.app.test_client()
+    page=app.get("/avaliador").get_data(as_text=True)
+    assert page.count('class="banca-judge-checkbox"')==4
+    assert 'banca-check-indicator' not in page
+    assert "banca-judge-pass" not in page
+    assert "banca-admin-pass" in page
+    # CSS impede que input:not([type=radio]) trate checkbox como campo de texto.
+    from pathlib import Path
+    stylesheet=Path(__file__).resolve().parents[1] / "static" / "style.css"
+    content=stylesheet.read_text(encoding="utf-8")
+    assert "input:not([type=radio]):not([type=checkbox]),select,textarea{" in content
+    assert "form label.banca-judge-choice input[type=checkbox].banca-judge-checkbox" in content

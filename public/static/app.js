@@ -238,9 +238,14 @@ if(bancaPortal){
       if(tile)tile.classList.toggle('is-selected',checkbox.checked);
     }
     const chosen=judges.find(c=>c.checked);
-    if(judgeStatus)judgeStatus.textContent=chosen
-      ?'Selecionado: '+chosen.closest('.banca-judge-choice').querySelector('.banca-judge-name').textContent.trim()
-      :'Selecione seu nome para continuar.';
+    if(judgeStatus){
+      const name=chosen?.closest('.banca-judge-choice')?.querySelector('.banca-judge-name');
+      const affiliate=name?.querySelector('small')?.textContent?.trim()||'';
+      const title=name?.firstChild?.textContent?.trim()||'';
+      judgeStatus.textContent=chosen
+        ?'Selecionado: '+title+(affiliate?' — '+affiliate:'')
+        :'Selecione seu nome para continuar.';
+    }
   }
   for(const checkbox of judges)checkbox.addEventListener('change',()=>{
     if(checkbox.checked)for(const other of judges)if(other!==checkbox)other.checked=false;
