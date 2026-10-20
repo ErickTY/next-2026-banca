@@ -169,3 +169,11 @@ A página `/` abre diretamente a área dos **Avaliadores**. As outras duas rotas
 - As páginas públicas de entrada não consultam o Supabase, permitindo apresentar a interface quando o projeto estiver pausado. Para entrar nas áreas autenticadas e salvar notas, entretanto, o projeto Supabase NEXT precisa estar ativo.
 
 Sem mudanças em tabelas ou migrações SQL.
+
+## Acesso sem senha para a banca (20/10/2026)
+
+Os quatro avaliadores agora acessam sem senha: selecionam um único **checkbox** com seu nome em `/` ou `/avaliador` e pressionam **Começar a avaliar**. O servidor aceita somente perfis de avaliador cadastrados e ativos e cria uma sessão associada ao ID selecionado. Não há mudança nas notas, pontuações ou tabelas.
+
+A **Coordenação / Scrum Master** segue exigindo senha em `/coordenacao`, com bloqueio de tentativas inválidas e proteções administrativas. A escolha de um nome de avaliador não desbloqueia recursos administrativos.
+
+**Atenção à integridade:** não há autenticação de identidade dos avaliadores sem senha. Qualquer pessoa que tenha acesso ao link pode selecionar outro avaliador e alterar suas notas. Compartilhe o endereço apenas com a banca e mantenha a coordenação monitorando a classificação. O banco Supabase deve estar ativo para o fluxo funcionar.

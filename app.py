@@ -439,28 +439,54 @@ def health():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        init_admin()
         usernames = request.form.getlist("username")
         portal_role = request.form.get("portal_role", "")
+        is_admin_portal = portal_role in ("admin", "")
+        section = "coordenacao" if is_admin_portal else "avaliador"
         if len(usernames) != 1 or not usernames[0].strip():
-            flash("Selecione apenas um avaliador para registrar a ficha.", "error")
-            return render_template("login.html", portal_section="coordenacao" if portal_role=="admin" else "avaliador"), 400
+            flash("Selecione somente um avaliador.", "error")
+            return render_template("login.html", portal_section=section), 400
         username = usernames[0].strip().lower()
-        password = request.form.get("password", "")
+
+        # Avaliadores: acesso direto por seleção, SEM senha.
+        # Scrum Master/Coordenação: segue exigindo senha e validação de papel.
+        if is_admin_portal:
+            init_admin()
         u = one("banca_usuarios", username=username)
-        locked = u and u.locked_until and u.locked_until > now()
-        allowed = u and (u.role == "admin" or (u.role == "judge" and u.username in JUDGE_IDENTITIES))
-        if portal_role in ("admin", "judge"):
-            allowed = allowed and u and u.role == portal_role
-        valid = u and allowed and u.active and not locked and check_password_hash(u.password_hash, password)
+        is_judge = bool(
+            portal_role == "judge" and username in JUDGE_IDENTITIES and
+            u and u.username == username and u.role == "judge"
+        )
+        is_admin = bool(
+            is_admin_portal and u and u.username == username and u.role == "admin"
+        )
+        locked = bool(is_admin and u.locked_until and u.locked_until > now())
+        valid = bool(
+            u and u.active and not locked and (
+                is_judge or (
+                    is_admin and check_password_hash(
+                        u.password_hash, request.form.get("password", "")
+                    )
+                )
+            )
+        )
         if not valid:
-            if u and not locked:
+            if is_admin and not locked:
                 fail = int(u.failed_attempts) + 1
-                values = {"falhas_login": 0, "bloqueado_ate": (now()+timedelta(minutes=10)).isoformat()} if fail>=5 else {"falhas_login": fail}
+                values = {"falhas_login": 0, "bloqueado_ate": (now()+timedelta(minutes=10)).isoformat()} if fail >= 5 else {"falhas_login": fail}
                 patch("banca_usuarios", values, id=u.id)
-            flash("Credenciais inválidas ou conta temporariamente bloqueada.", "error")
-            return render_template("login.html", portal_section="coordenacao" if portal_role=="admin" else "avaliador"), 401
-        patch("banca_usuarios", {"falhas_login": 0, "bloqueado_ate": None}, id=u.id)
+            flash(
+                "Avaliador indisponível. Confira a seleção ou contate a coordenação."
+                if not is_admin_portal else
+                "Credenciais administrativas inválidas ou conta temporariamente bloqueada.",
+                "error"
+            )
+            return render_template("login.html", portal_section=section), 401
+
+        # Ao desativar senha para avaliadores, também limpamos bloqueios
+        # antigos por senha. Nenhuma permissão administrativa é concedida.
+        if u.failed_attempts or u.locked_until:
+            patch("banca_usuarios", {"falhas_login": 0, "bloqueado_ate": None}, id=u.id)
         session.clear()
         session["uid"] = u.id
         session["csrf_token"] = secrets.token_urlsafe(32)

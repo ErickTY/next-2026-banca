@@ -20,7 +20,7 @@
   <section class="panel banca-role-panel" id="banca-area-avaliador" data-portal-panel="avaliador" {% if section=='coordenacao' %}hidden{% endif %}>
     <div class="eyebrow">AVALIAÇÃO INDIVIDUAL · 4 AVALIADORES</div>
     <h2>Quem está avaliando?</h2>
-    <p class="muted">Marque <strong>uma única caixa</strong> com seu nome. Após a confirmação rápida, você será direcionado à lista das nove equipes e suas fichas.</p>
+    <p class="muted">Marque <strong>seu nome</strong> e toque em <strong>Começar a avaliar</strong>. Não é necessário digitar senha.</p>
 
     <form method="post" action="{{ url_for('login') }}" class="banca-entry-form" id="banca-judge-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -39,14 +39,9 @@
         {% endfor %}
       </div>
       <p class="banca-portal-hint" id="banca-judge-status" role="status" aria-live="polite">Selecione seu nome para continuar.</p>
-      <div class="banca-quick-verify">
-        <label for="banca-judge-pass">Senha rápida do avaliador
-          <input id="banca-judge-pass" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
-        </label>
-        <button class="primary banca-entry-button" type="submit">Ir para minhas avaliações →</button>
-      </div>
+      <button class="primary banca-entry-button banca-judge-start" type="submit">Começar a avaliar →</button>
     </form>
-    <p class="hint">O nome escolhido identifica de quem é cada nota. A senha individual impede registros acidentais em nome de outra pessoa.</p>
+    <p class="hint">Este acesso não pede senha: quem tiver o link poderá selecionar qualquer avaliador. Compartilhe o endereço somente com a banca.</p>
   </section>
 
   <section class="panel banca-role-panel" id="banca-area-coordenacao" data-portal-panel="coordenacao" {% if section!='coordenacao' %}hidden{% endif %}>

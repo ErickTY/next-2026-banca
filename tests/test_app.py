@@ -220,7 +220,7 @@ def test_identificacao_nominal_dos_avaliadores(module):
     login_page=module.app.test_client().get('/login').get_data(as_text=True)
     assert 'Avaliador 3 — Prof. Luiz (FIAP)' in login_page
     assert 'Avaliador 4 — Prof. Roberto (FIAP)' in login_page
-    assert 'data-login-identity=' in login_page
+    assert 'class="banca-judge-checkbox"' in login_page
 
 
 def test_formulario_impresso_e_leitura_otica_sem_ia_externa():
@@ -604,38 +604,37 @@ def test_portal_direto_areas_de_avaliador_e_coordenacao_sem_consulta_supabase(mo
 
 
 def test_portal_checkbox_somente_um_avaliador(module,monkeypatch):
-    from werkzeug.security import generate_password_hash
     from types import SimpleNamespace
     selected=SimpleNamespace(id=7,username="avaliador02",role="judge",
-        password_hash=generate_password_hash("avaliador02"),active=True,
-        locked_until=None,failed_attempts=0)
+        active=True,locked_until=None,failed_attempts=0)
     monkeypatch.setattr(module,"init_admin",lambda:None)
     monkeypatch.setattr(module,"one",lambda table,**kwargs:selected)
     monkeypatch.setattr(module,"patch",lambda *args,**kwargs:None)
     client=module.app.test_client()
-    client.get("/")
+    page=client.get("/").get_data(as_text=True)
+    # Nenhuma senha para o avaliador, mas a coordenação conserva a própria.
+    assert "banca-judge-pass" not in page
+    assert "banca-admin-pass" in page
+    assert "Começar a avaliar" in page
     with client.session_transaction() as sess:csrf=sess["csrf_token"]
-    missing=client.post("/login",data={
-        "csrf_token":csrf,"portal_role":"judge","password":"avaliador02"
-    })
+    missing=client.post("/login",data={"csrf_token":csrf,"portal_role":"judge"})
     assert missing.status_code==400
     double=client.post("/login",data={
         "csrf_token":csrf,"portal_role":"judge",
-        "username":["avaliador01","avaliador02"],"password":"avaliador02"
+        "username":["avaliador01","avaliador02"]
     })
     assert double.status_code==400
     valid=client.post("/login",data={
-        "csrf_token":csrf,"portal_role":"judge",
-        "username":"avaliador02","password":"avaliador02"
+        "csrf_token":csrf,"portal_role":"judge","username":"avaliador02"
     })
     assert valid.status_code==302
     assert "/dashboard" in valid.headers["Location"]
-    # Um login valido renova o token CSRF da sessao.
     with client.session_transaction() as sess:
+        assert sess["uid"]==7
         csrf=sess["csrf_token"]
+    # Selecionar um avaliador como "admin" jamais concede acesso administrativo.
     wrong_role=client.post("/login",data={
-        "csrf_token":csrf,"portal_role":"admin",
-        "username":"avaliador02","password":"avaliador02"
+        "csrf_token":csrf,"portal_role":"admin","username":"avaliador02"
     })
     assert wrong_role.status_code==401
 
@@ -658,3 +657,43 @@ def test_portal_coordenacao_preserva_senha_e_papel_admin(module,monkeypatch):
     })
     assert ok.status_code==302
     assert "/dashboard" in ok.headers["Location"]
+
+
+def test_portal_sem_senha_nao_concede_admin_por_troca_de_papel(module, monkeypatch):
+    from types import SimpleNamespace
+    from werkzeug.security import generate_password_hash
+    admin=SimpleNamespace(
+        id=1, username="coordenacao", role="admin", active=True,
+        password_hash=generate_password_hash("senha-administrativa-forte"),
+        failed_attempts=0,locked_until=None
+    )
+    monkeypatch.setattr(module, "init_admin", lambda:None)
+    monkeypatch.setattr(module, "one", lambda table,**kwargs:admin)
+    monkeypatch.setattr(module, "patch", lambda *args,**kwargs:None)
+    client=module.app.test_client()
+    client.get("/")
+    with client.session_transaction() as sess: csrf=sess["csrf_token"]
+    # Sem senha ou no papel de avaliador, não deve aceitar a coordenação.
+    assert client.post("/login",data={
+        "csrf_token":csrf,"portal_role":"admin","username":"coordenacao"
+    }).status_code==401
+    assert client.post("/login",data={
+        "csrf_token":csrf,"portal_role":"judge","username":"coordenacao"
+    }).status_code==401
+    assert client.post("/login",data={
+        "csrf_token":csrf,"portal_role":"admin","username":"coordenacao",
+        "password":"senha-administrativa-forte"
+    }).status_code==302
+
+
+def test_avaliador_inativo_nao_entra_sem_senha(module,monkeypatch):
+    from types import SimpleNamespace
+    inactive=SimpleNamespace(id=13,username="avaliador03",role="judge",
+        active=False,locked_until=None,failed_attempts=0)
+    monkeypatch.setattr(module,"one",lambda table,**kwargs:inactive)
+    client=module.app.test_client()
+    client.get("/")
+    with client.session_transaction() as sess:csrf=sess["csrf_token"]
+    assert client.post("/login",data={
+        "csrf_token":csrf,"portal_role":"judge","username":"avaliador03"
+    }).status_code==401

@@ -253,3 +253,7 @@
 .banca-admin-overview strong{color:white;font-size:22px}
 .banca-admin-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end;max-width:750px}
 @media(max-width:650px){.banca-portal{margin-top:0}.banca-portal-heading{margin-bottom:18px}.banca-role-tabs{gap:7px}.banca-role-tab{min-height:73px;gap:8px;padding:9px;font-size:13px}.banca-role-tab>span:first-child{font-size:21px}.banca-role-tab small{font-size:10px;line-height:1.25}.banca-role-panel{padding:20px 15px 25px}.banca-judge-choices{grid-template-columns:1fr;gap:9px;margin-top:18px}.banca-judge-box{min-height:70px;padding-block:10px}.banca-quick-verify,.banca-admin-form{grid-template-columns:1fr}.banca-entry-button{width:100%;justify-content:center}}
+
+
+/* Entrada dos avaliadores sem senha: único botão grande. */
+.banca-judge-start{display:flex;width:100%;justify-content:center;min-height:56px;font-size:16px;margin-top:8px}
