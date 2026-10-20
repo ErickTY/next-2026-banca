@@ -353,7 +353,11 @@ def get_user():
 def shared():
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
-    user = get_user()
+    # A tela inicial e suas rotas publicas devem abrir mesmo se o
+    # Supabase estiver temporariamente pausado. So consultar a identidade
+    # nas rotas que realmente exigem autenticacao.
+    public_portal = request.endpoint in ("root", "login", "portal_evaluator", "portal_coordinator")
+    user = None if public_portal else get_user()
     return {"csrf_token": session["csrf_token"],
             "current_user": user,
             "current_user_label": evaluator_label(user),
@@ -436,11 +440,18 @@ def health():
 def login():
     if request.method == "POST":
         init_admin()
-        username = request.form.get("username", "").strip().lower()
+        usernames = request.form.getlist("username")
+        portal_role = request.form.get("portal_role", "")
+        if len(usernames) != 1 or not usernames[0].strip():
+            flash("Selecione apenas um avaliador para registrar a ficha.", "error")
+            return render_template("login.html", portal_section="coordenacao" if portal_role=="admin" else "avaliador"), 400
+        username = usernames[0].strip().lower()
         password = request.form.get("password", "")
         u = one("banca_usuarios", username=username)
         locked = u and u.locked_until and u.locked_until > now()
         allowed = u and (u.role == "admin" or (u.role == "judge" and u.username in JUDGE_IDENTITIES))
+        if portal_role in ("admin", "judge"):
+            allowed = allowed and u and u.role == portal_role
         valid = u and allowed and u.active and not locked and check_password_hash(u.password_hash, password)
         if not valid:
             if u and not locked:
@@ -448,24 +459,33 @@ def login():
                 values = {"falhas_login": 0, "bloqueado_ate": (now()+timedelta(minutes=10)).isoformat()} if fail>=5 else {"falhas_login": fail}
                 patch("banca_usuarios", values, id=u.id)
             flash("Credenciais inválidas ou conta temporariamente bloqueada.", "error")
-            return render_template("login.html"), 401
+            return render_template("login.html", portal_section="coordenacao" if portal_role=="admin" else "avaliador"), 401
         patch("banca_usuarios", {"falhas_login": 0, "bloqueado_ate": None}, id=u.id)
         session.clear()
         session["uid"] = u.id
         session["csrf_token"] = secrets.token_urlsafe(32)
         session.permanent = True
         return redirect(url_for("dashboard"))
-    return render_template("login.html")
+    return render_template("login.html", portal_section="avaliador")
+
+@app.get("/avaliador")
+def portal_evaluator():
+    return render_template("login.html", portal_section="avaliador")
+
+@app.get("/coordenacao")
+def portal_coordinator():
+    return render_template("login.html", portal_section="coordenacao")
 
 @app.post("/logout")
 @login_required
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("root"))
 
 @app.get("/")
 def root():
-    return redirect(url_for("dashboard") if session.get("uid") else url_for("login"))
+    # Abrir diretamente a area do avaliador, sem tela anterior de login.
+    return render_template("login.html", portal_section="avaliador")
 
 @app.get("/dashboard")
 @login_required

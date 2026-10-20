@@ -159,3 +159,13 @@ Após a migração, no painel da coordenação, a escolha **TODAS AS NOTAS** usa
 Para todos os grupos, **o sistema disponibiliza exatamente duas câmeras**, sendo essa informação fixa e não editável na ficha digital, na revisão de fotografias e nos formulários PDF de contingência. O avaliador informa somente **quantas utilizou (1 ou 2)**. Utilizar uma câmera mantém o bônus de 10%, limitado a 15 pontos.
 
 O servidor Flask ignora qualquer valor `available` enviado pelo navegador e grava `p_disponiveis=2` também nas importações manuais. Não é necessário modificar o Supabase para salvar novas fichas. Dados históricos que tenham sido preenchidos com "1 disponibilizada" podem ser normalizados **opcionalmente**, sem alterar notas ou câmeras efetivamente usadas, executando [20261013_fixar_duas_cameras_disponiveis.sql](supabase/migrations/20261013_fixar_duas_cameras_disponiveis.sql) no Supabase NEXT 2026. A migração também protege contra novos registros com valor diferente de 2.
+
+## Entrada direta por perfil (20/10/2026)
+
+A página `/` abre diretamente a área dos **Avaliadores**. As outras duas rotas também funcionam sem uma etapa anterior de login: `/avaliador` e `/coordenacao` (Scrum Master / Coordenação). A antiga `/login` foi mantida por compatibilidade e exibe a mesma interface integrada.
+
+- **Avaliadores:** selecione exclusivamente um dos quatro perfis oficiais com *checkbox*. A interface desmarca automaticamente os demais, e o servidor rejeita submissões com seleção ausente ou duplicada. A senha individual é informada no próprio painel, sem tela adicional. Após a verificação, o avaliador entra diretamente no quadro com as nove equipes e seus formulários. Notas e sessão continuam associadas ao usuário autenticado no Supabase.
+- **Scrum Master / Coordenação:** aba separada com apenas a senha administrativa, conduz ao painel de cronômetro, ranking, exportações e exclusão controlada. Os privilégios administrativos não são liberados pela seleção visual.
+- As páginas públicas de entrada não consultam o Supabase, permitindo apresentar a interface quando o projeto estiver pausado. Para entrar nas áreas autenticadas e salvar notas, entretanto, o projeto Supabase NEXT precisa estar ativo.
+
+Sem mudanças em tabelas ou migrações SQL.

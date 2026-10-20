@@ -206,47 +206,54 @@ if(fastForm){
 }
 updateTotal();
 
-// Login visual: apenas selecionar o avaliador e informar sua senha.
-const quickLogin=document.querySelector('#quick-login');
-if(quickLogin){
-  const username=quickLogin.elements.namedItem('username');
-  const password=quickLogin.elements.namedItem('password');
-  const tiles=[...quickLogin.querySelectorAll('[data-login-user]')];
-  const selectedIdentity=document.querySelector('#selected-access-name');
-  function selectQuickUser(name){
-    if(username)username.value=name;
-    const chosen=tiles.find(tile=>tile.dataset.loginUser===name);
-    for(const tile of tiles){
-      const active=tile.dataset.loginUser===name;
-      tile.classList.toggle('selected',active);
-      tile.setAttribute('aria-pressed',active?'true':'false');
+// Entrada direta: selecao exclusiva por checkbox e acesso admin na mesma pagina.
+const bancaPortal=document.querySelector('.banca-portal');
+if(bancaPortal){
+  const tabs=[...bancaPortal.querySelectorAll('[data-portal-tab]')];
+  const panels=[...bancaPortal.querySelectorAll('[data-portal-panel]')];
+  function showPortalSection(section){
+    for(const tab of tabs){
+      const active=tab.dataset.portalTab===section;
+      tab.classList.toggle('active',active);
+      if(active)tab.setAttribute('aria-current','page');
+      else tab.removeAttribute('aria-current');
     }
-    if(selectedIdentity)selectedIdentity.textContent=chosen
-      ?'Selecionado: '+chosen.dataset.loginIdentity
-      :'Login informado: '+name;
-    if(password)password.focus();
+    for(const panel of panels)panel.hidden=panel.dataset.portalPanel!==section;
   }
-  for(const tile of tiles)tile.addEventListener('click',()=>selectQuickUser(tile.dataset.loginUser));
-  if(username&&username.value)selectQuickUser(username.value);
-  username?.addEventListener('input',()=>{
-    const chosen=tiles.find(tile=>tile.dataset.loginUser===username.value);
-    for(const tile of tiles){
-      const active=tile.dataset.loginUser===username.value;
-      tile.classList.toggle('selected',active);
-      tile.setAttribute('aria-pressed',active?'true':'false');
-    }
-    if(selectedIdentity)selectedIdentity.textContent=chosen
-      ?'Selecionado: '+chosen.dataset.loginIdentity
-      :(username.value?'Login informado: '+username.value:'Selecione seu nome antes de informar a senha.');
+  for(const tab of tabs)tab.addEventListener('click',event=>{
+    event.preventDefault();
+    const section=tab.dataset.portalTab;
+    showPortalSection(section);
+    if(window.history&&window.history.replaceState)
+      window.history.replaceState({},'',tab.getAttribute('href'));
   });
-  quickLogin.addEventListener('submit',event=>{
-    if(!username?.value){
+  showPortalSection(bancaPortal.dataset.portalDefault||'avaliador');
+
+  const judges=[...bancaPortal.querySelectorAll('.banca-judge-checkbox')];
+  const judgeForm=bancaPortal.querySelector('#banca-judge-form');
+  const judgeStatus=bancaPortal.querySelector('#banca-judge-status');
+  function updateJudgeChoice(){
+    for(const checkbox of judges){
+      const tile=checkbox.closest('.banca-judge-choice');
+      if(tile)tile.classList.toggle('is-selected',checkbox.checked);
+    }
+    const chosen=judges.find(c=>c.checked);
+    if(judgeStatus)judgeStatus.textContent=chosen
+      ?'Selecionado: '+chosen.closest('.banca-judge-choice').querySelector('.banca-judge-name').textContent.trim()
+      :'Selecione seu nome para continuar.';
+  }
+  for(const checkbox of judges)checkbox.addEventListener('change',()=>{
+    if(checkbox.checked)for(const other of judges)if(other!==checkbox)other.checked=false;
+    updateJudgeChoice();
+  });
+  judgeForm?.addEventListener('submit',event=>{
+    if(judges.filter(c=>c.checked).length!==1){
       event.preventDefault();
-      const details=username.closest('details');
-      if(details)details.open=true;
-      username.focus();
+      if(judgeStatus)judgeStatus.textContent='Marque somente um avaliador antes de continuar.';
+      judges[0]?.focus();
     }
   });
+  updateJudgeChoice();
 }
 // Para formulários: confirmar apenas no envio, nunca ao clicar num campo.
 document.querySelectorAll('[data-confirm]').forEach(element=>{

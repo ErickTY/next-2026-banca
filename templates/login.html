@@ -1,31 +1,73 @@
 {% extends 'base.html' %}
-{% block title %}Acesso rápido • NEXT 2026{% endblock %}
+{% block title %}Painel direto • NEXT 2026{% endblock %}
 {% block content %}
-<div class="loginwrap"><section class="panel loginpanel login-fast">
-  <div class="eyebrow">PORTAL DA BANCA</div>
-  <h1>Entrar no <span class="pink">NEXT 2026</span></h1>
-  <p class="muted">Selecione seu perfil e digite somente sua senha. Cada avaliador registra sua própria ficha.</p>
-  <form method="post" class="stack" id="quick-login">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="access-heading" for="quick-username">Quem vai avaliar?</label>
-    <div class="login-personas" role="group" aria-label="Selecionar usuário">
-      {% for username, identity in judge_profiles.items() %}
-      <button type="button" class="access-tile" data-login-user="{{ username }}" data-login-identity="{{ identity }}" aria-pressed="false">
-        <span class="access-icon">{{ '%02d'|format(loop.index) }}</span>
-        <span class="access-name">Avaliador {{ loop.index }}</span>
-        <small class="access-affiliation">{{ identity.split(' — ', 1)[1] if ' — ' in identity else identity }}</small>
-      </button>
-      {% endfor %}
-      <button type="button" class="access-tile admin-tile" data-login-user="coordenacao" data-login-identity="Coordenação" aria-pressed="false"><span class="access-icon">★</span><span>Coordenação</span></button>
+{% set section = portal_section|default('avaliador') %}
+<div class="banca-portal" data-portal-default="{{ section }}">
+  <header class="banca-portal-heading">
+    <div class="eyebrow">NEXT 2026 · CHALLENGE DATEN</div>
+    <h1>Banca <span class="pink">AI Vision Edge</span></h1>
+    <p class="muted">Acesse diretamente sua área de trabalho. A escolha do avaliador é feita aqui, sem precisar digitar o nome de usuário.</p>
+  </header>
+  <nav class="banca-role-tabs" aria-label="Escolher área da banca">
+    <a href="{{ url_for('portal_evaluator') }}" class="banca-role-tab{{ ' active' if section!='coordenacao' else '' }}" data-portal-tab="avaliador" aria-current="{{ 'page' if section!='coordenacao' else 'false' }}">
+      <span aria-hidden="true">◉</span><span>Avaliadores<small>Registro das notas</small></span>
+    </a>
+    <a href="{{ url_for('portal_coordinator') }}" class="banca-role-tab{{ ' active' if section=='coordenacao' else '' }}" data-portal-tab="coordenacao" aria-current="{{ 'page' if section=='coordenacao' else 'false' }}">
+      <span aria-hidden="true">★</span><span>Scrum Master / Coordenação<small>Cronômetro, ranking e controle</small></span>
+    </a>
+  </nav>
+
+  <section class="panel banca-role-panel" id="banca-area-avaliador" data-portal-panel="avaliador" {% if section=='coordenacao' %}hidden{% endif %}>
+    <div class="eyebrow">AVALIAÇÃO INDIVIDUAL · 4 AVALIADORES</div>
+    <h2>Quem está avaliando?</h2>
+    <p class="muted">Marque <strong>uma única caixa</strong> com seu nome. Após a confirmação rápida, você será direcionado à lista das nove equipes e suas fichas.</p>
+
+    <form method="post" action="{{ url_for('login') }}" class="banca-entry-form" id="banca-judge-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="portal_role" value="judge">
+      <div class="banca-judge-choices" role="group" aria-label="Selecione um avaliador">
+        {% for username, identity in judge_profiles.items() %}
+        <label class="banca-judge-choice">
+          <input class="banca-judge-checkbox" type="checkbox" name="username" value="{{ username }}"
+            {{ 'checked' if request.form.get('username')==username else '' }}>
+          <span class="banca-judge-box">
+            <span class="banca-judge-number">{{ '%02d'|format(loop.index) }}</span>
+            <span class="banca-judge-name">Avaliador {{ loop.index }}<small>{{ identity.split(' — ', 1)[1] if ' — ' in identity else identity }}</small></span>
+            <span class="banca-check-indicator" aria-hidden="true">✓</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="banca-portal-hint" id="banca-judge-status" role="status" aria-live="polite">Selecione seu nome para continuar.</p>
+      <div class="banca-quick-verify">
+        <label for="banca-judge-pass">Senha rápida do avaliador
+          <input id="banca-judge-pass" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+        </label>
+        <button class="primary banca-entry-button" type="submit">Ir para minhas avaliações →</button>
+      </div>
+    </form>
+    <p class="hint">O nome escolhido identifica de quem é cada nota. A senha individual impede registros acidentais em nome de outra pessoa.</p>
+  </section>
+
+  <section class="panel banca-role-panel" id="banca-area-coordenacao" data-portal-panel="coordenacao" {% if section!='coordenacao' %}hidden{% endif %}>
+    <div class="eyebrow">ACESSO ADMINISTRATIVO</div>
+    <h2>Scrum Master / Coordenação</h2>
+    <p class="muted">Acesse os cronômetros de 5 minutos, controles das equipes, classificação ao vivo, exportações e contingência.</p>
+    <div class="banca-admin-overview">
+      <span><strong>09</strong> equipes</span>
+      <span><strong>05:00</strong> por apresentação</span>
+      <span><strong>04</strong> avaliadores</span>
     </div>
-    <p class="selected-access-name" id="selected-access-name" role="status" aria-live="polite">Selecione seu nome antes de informar a senha.</p>
-    <details class="login-manual">
-      <summary>Outro identificador de acesso</summary>
-      <label for="quick-username">Login<input id="quick-username" name="username" autocomplete="username" maxlength="40" placeholder="avaliador01" value="{{ request.form.get('username','') }}"></label>
-    </details>
-    <label for="quick-password">Senha<input id="quick-password" name="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha" autofocus></label>
-    <button class="primary login-submit" type="submit">Entrar para avaliar →</button>
-  </form>
-  <p class="hint">A senha é pessoal. Se estiver bloqueado, contate a coordenação. O botão de perfil substitui a digitação do usuário.</p>
-</section></div>
+    <form method="post" action="{{ url_for('login') }}" class="banca-entry-form banca-admin-form" id="banca-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="portal_role" value="admin">
+      <input type="hidden" name="username" value="coordenacao">
+      <label for="banca-admin-pass">Senha da Coordenação
+        <input id="banca-admin-pass" name="password" type="password" autocomplete="current-password" placeholder="Senha administrativa" required>
+      </label>
+      <button class="primary banca-entry-button" type="submit">Abrir painel de controle →</button>
+    </form>
+    <p class="hint">Por segurança, as ações de Scrum Master — iniciar, pausar, reiniciar e encerrar cronômetros, além de excluir notas — permanecem exclusivas da coordenação autenticada.</p>
+  </section>
+</div>
 {% endblock %}

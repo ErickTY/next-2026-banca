@@ -213,3 +213,43 @@
 .footer-credit strong{color:#f4f6fc;font-weight:800}
 .footer-credit strong:last-child{color:var(--pink)}
 @media(max-width:600px){.footer{padding:24px 16px 32px}.footer-meta{flex-direction:column;gap:1px}.footer-credit{font-size:11px}}
+
+
+/* Entrada direta: 2 áreas, checkboxes com seleção exclusiva de avaliador. */
+.banca-portal{max-width:960px;margin:14px auto 54px}
+.banca-portal-heading{text-align:left;margin:0 0 23px}
+.banca-portal-heading h1{font-size:clamp(34px,5.6vw,57px);line-height:1.05;margin:9px 0 12px}
+.banca-portal-heading>.muted{max-width:700px;font-size:15px}
+.banca-role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:17px}
+.banca-role-tab{display:flex;align-items:center;gap:12px;border:1px solid #394258;border-radius:13px;padding:15px 17px;background:#141924;color:#e5e9f3;font-weight:850;min-height:76px;text-decoration:none}
+.banca-role-tab>span:first-child{font-size:28px;color:#adbad0}
+.banca-role-tab>span:last-child{display:flex;flex-direction:column;gap:3px}
+.banca-role-tab small{font-size:12px;color:#a5b2c6;font-weight:500}
+.banca-role-tab.active{background:linear-gradient(130deg,#3d1225,#211927 85%);border-color:#e91e63;box-shadow:0 0 0 1px #ff346356}
+.banca-role-tab.active>span:first-child{color:#ff5087}
+.banca-role-panel{padding:26px 28px 30px}
+.banca-role-panel[hidden]{display:none!important}
+.banca-role-panel h2{font-size:clamp(25px,3.4vw,31px);margin:4px 0 9px}
+.banca-role-panel>.muted{max-width:760px;line-height:1.65}
+.banca-judge-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0 12px}
+.banca-judge-choice{cursor:pointer;position:relative;display:block;min-width:0}
+.banca-judge-checkbox{position:absolute;top:17px;left:14px;width:20px;height:20px;accent-color:#f50c5e;z-index:1;cursor:pointer}
+.banca-judge-box{min-height:103px;display:flex;align-items:center;gap:13px;background:#181d2a;border:1px solid #43485b;border-radius:12px;padding:16px 13px 16px 45px;transition:.16s}
+.banca-judge-number{background:#353a4b;border-radius:9px;padding:7px;color:white;font-size:15px;font-weight:900}
+.banca-judge-name{font-size:16px;font-weight:800;display:flex;flex-direction:column;gap:3px}
+.banca-judge-name small{color:#b5bfd0;font-size:12px;font-weight:550}
+.banca-check-indicator{margin-left:auto;border:1px solid #535b6e;color:#8e99b1;border-radius:50%;height:25px;width:25px;display:grid;place-items:center;flex-shrink:0}
+.banca-judge-choice.is-selected .banca-judge-box,.banca-judge-choice:has(input:checked) .banca-judge-box{border-color:#ff2d77;background:#35182a;box-shadow:0 0 0 1px #ff307753}
+.banca-judge-choice.is-selected .banca-check-indicator,.banca-judge-choice:has(input:checked) .banca-check-indicator{color:white;background:#ee1461;border-color:#ee1461}
+.banca-judge-choice:focus-within .banca-judge-box{outline:2px solid #ff6c9e;outline-offset:2px}
+.banca-portal-hint{font-size:13px;color:#ffd0df;margin:7px 0 19px;min-height:19px}
+.banca-quick-verify{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:14px}
+.banca-quick-verify label,.banca-admin-form label{font-weight:740;font-size:13px}
+.banca-quick-verify input,.banca-admin-form input{width:100%;margin-top:7px;min-height:49px}
+.banca-entry-button{min-height:49px;padding:13px 19px}
+.banca-role-panel>.hint{margin-top:18px;line-height:1.65}
+.banca-admin-overview{display:flex;gap:11px;flex-wrap:wrap;margin:24px 0}
+.banca-admin-overview span{background:#151d29;border:1px solid #3b465b;border-radius:9px;padding:13px 18px;color:#bfc9d8;display:flex;gap:7px;align-items:center}
+.banca-admin-overview strong{color:white;font-size:22px}
+.banca-admin-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end;max-width:750px}
+@media(max-width:650px){.banca-portal{margin-top:0}.banca-portal-heading{margin-bottom:18px}.banca-role-tabs{gap:7px}.banca-role-tab{min-height:73px;gap:8px;padding:9px;font-size:13px}.banca-role-tab>span:first-child{font-size:21px}.banca-role-tab small{font-size:10px;line-height:1.25}.banca-role-panel{padding:20px 15px 25px}.banca-judge-choices{grid-template-columns:1fr;gap:9px;margin-top:18px}.banca-judge-box{min-height:70px;padding-block:10px}.banca-quick-verify,.banca-admin-form{grid-template-columns:1fr}.banca-entry-button{width:100%;justify-content:center}}
