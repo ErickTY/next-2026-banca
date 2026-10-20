@@ -312,14 +312,39 @@ if PROD:
 
 @app.errorhandler(SupabaseError)
 def api_error(exc):
+    """Indisponibilidade do Supabase não significa schema ausente.
+
+    Não propor executar schema.sql: dados e usuários já existem no projeto.
+    A resposta é autocontida para não depender do próprio banco indisponível.
+    """
     log.error("Falha do serviço da banca: %s", exc)
+    from html import escape
+    path = request.path if request.path in ("/login", "/", "/avaliador", "/coordenacao") else "/"
+    retry_url = escape(path, quote=True)
+    description = escape(str(exc))
     return (
-        '<!doctype html><html lang="pt-BR"><meta charset="utf-8">'
-        '<title>Configuração NEXT 2026</title><body style="font:16px sans-serif;max-width:700px;margin:10vh auto">'
-        '<h1>O sistema da banca ainda não está pronto</h1>'
-        '<p>Verifique as variáveis do Vercel e execute o arquivo <code>supabase/schema.sql</code> '
-        'no SQL Editor do projeto Supabase.</p>'
-        '<p>Detalhe: %s</p></body></html>' % __import__("html").escape(str(exc)), 503
+        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>Conexão temporariamente indisponível | NEXT 2026</title>'
+        '<style>body{margin:0;min-height:100vh;background:#090b10;color:#f5f5fa;'
+        'font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;padding:18px}'
+        'main{width:min(100%,660px);padding:28px;border:1px solid #383140;'
+        'border-radius:18px;background:#12151d}small{color:#ff4588;letter-spacing:2px;font-weight:900}'
+        'h1{font-size:clamp(25px,5vw,36px);line-height:1.18;margin:15px 0}'
+        'p{color:#c1c5d1}a{display:inline-block;background:#ed145b;color:white;'
+        'border-radius:10px;padding:12px 20px;font-weight:800;text-decoration:none}'
+        'details{margin-top:20px;color:#a7adba;font-size:12px}'
+        '</style></head><body><main>'
+        '<small>NEXT 2026 · BANCA DATEN</small>'
+        '<h1>Conexão com a banca temporariamente indisponível</h1>'
+        '<p>O Supabase pode estar reiniciando. Aguarde a conclusão da '
+        'inicialização e tente acessar novamente. Suas avaliações já '
+        'registradas não foram alteradas por esta tentativa.</p>'
+        '<p>Não é necessário executar o arquivo schema.sql.</p>'
+        '<a href="' + retry_url + '">Tentar novamente →</a>'
+        '<details><summary>Informação para a coordenação</summary><p>'
+        + description + '</p></details>'
+        '</main></body></html>', 503
     )
 
 @app.before_request

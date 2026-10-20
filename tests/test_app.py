@@ -713,3 +713,13 @@ def test_portal_checkbox_sem_sobreposicao_e_sem_indicadores_duplicados(module):
     content=stylesheet.read_text(encoding="utf-8")
     assert "input:not([type=radio]):not([type=checkbox]),select,textarea{" in content
     assert "form label.banca-judge-choice input[type=checkbox].banca-judge-checkbox" in content
+
+
+def test_supabase_indisponivel_orienta_reativacao_e_nao_executar_sql(module):
+    with module.app.test_request_context("/login"):
+        body,status=module.api_error(module.SupabaseError("Não foi possível conectar à API do Supabase"))
+    assert status==503
+    assert "Conexão com a banca temporariamente indisponível" in body
+    assert "Não é necessário executar o arquivo schema.sql." in body
+    assert 'href="/login"' in body
+    assert "execute o arquivo" not in body
