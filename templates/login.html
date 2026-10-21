@@ -9,15 +9,18 @@
     <p class="muted">Acesse diretamente sua área de trabalho. A escolha do avaliador é feita aqui, sem precisar digitar o nome de usuário.</p>
   </header>
   <nav class="banca-role-tabs" aria-label="Escolher área da banca">
-    <a href="{{ url_for('portal_evaluator') }}" class="banca-role-tab{{ ' active' if section!='coordenacao' else '' }}" data-portal-tab="avaliador" aria-current="{{ 'page' if section!='coordenacao' else 'false' }}">
+    <a href="{{ url_for('portal_evaluator') }}" class="banca-role-tab{{ ' active' if section=='avaliador' else '' }}" data-portal-tab="avaliador" aria-current="{{ 'page' if section=='avaliador' else 'false' }}">
       <span aria-hidden="true">◉</span><span>Avaliadores<small>Registro das notas</small></span>
     </a>
     <a href="{{ url_for('portal_coordinator') }}" class="banca-role-tab{{ ' active' if section=='coordenacao' else '' }}" data-portal-tab="coordenacao" aria-current="{{ 'page' if section=='coordenacao' else 'false' }}">
       <span aria-hidden="true">★</span><span>Scrum Master / Coordenação<small>Cronômetro, ranking e controle</small></span>
     </a>
+    <a href="{{ url_for('portal_course') }}" class="banca-role-tab{{ ' active' if section=='curso' else '' }}" data-portal-tab="curso" aria-current="{{ 'page' if section=='curso' else 'false' }}">
+      <span aria-hidden="true">🏆</span><span>Coordenador de Curso<small>Classificação final · leitura</small></span>
+    </a>
   </nav>
 
-  <section class="panel banca-role-panel" id="banca-area-avaliador" data-portal-panel="avaliador" {% if section=='coordenacao' %}hidden{% endif %}>
+  <section class="panel banca-role-panel" id="banca-area-avaliador" data-portal-panel="avaliador" {% if section!='avaliador' %}hidden{% endif %}>
     <div class="eyebrow">AVALIAÇÃO INDIVIDUAL · 4 AVALIADORES</div>
     <h2>Quem está avaliando?</h2>
     <p class="muted">Marque <strong>seu nome</strong> e toque em <strong>Começar a avaliar</strong>. Não é necessário digitar senha.</p>
@@ -63,6 +66,21 @@
       <button class="primary banca-entry-button" type="submit">Abrir painel de controle →</button>
     </form>
     <p class="hint">Por segurança, as ações de Scrum Master — iniciar, pausar, reiniciar e encerrar cronômetros, além de excluir notas — permanecem exclusivas da coordenação autenticada.</p>
+  </section>
+  <section class="panel banca-role-panel" id="banca-area-curso" data-portal-panel="curso" {% if section!='curso' %}hidden{% endif %}>
+    <div class="eyebrow">ACESSO PARA COORDENADOR DE CURSO · SOMENTE CONSULTA</div>
+    <h2>Ranking Pré-NEXT + NEXT</h2>
+    <p class="muted">Acompanhe as notas classificatórias, a média da banca em tempo real e a projeção consolidada. Este perfil não altera avaliações.</p>
+    <form method="post" action="{{ url_for('login') }}" class="banca-entry-form banca-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="portal_role" value="course">
+      <input type="hidden" name="username" value="coordenador.curso">
+      <label for="course-password">Senha do Coordenador de Curso
+        <input id="course-password" type="password" name="password" required autocomplete="current-password" placeholder="Senha fornecida pela Coordenação">
+      </label>
+      <button class="primary banca-entry-button" type="submit">Visualizar classificação →</button>
+    </form>
+    <p class="hint">Solicite seu acesso à Coordenação NEXT 2026.</p>
   </section>
 </div>
 {% endblock %}

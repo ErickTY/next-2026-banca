@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Revisar Pré-NEXT · NEXT 2026{% endblock %}
+{% block content %}
+<div class="heading">
+<div><a class="back" href="{{ url_for('dashboard') }}">← Voltar à Coordenação</a>
+<div class="eyebrow">ACESSO ADMINISTRATIVO · PRÉ-NEXT</div><h1>Notas <span class="pink">classificatórias</span></h1>
+<p class="muted">Ajuste as notas acumuladas anteriormente ao NEXT, com máximo de 40 pontos. Cada alteração gera um registro de auditoria.</p></div>
+<div class="toolbar"><a class="outline" href="{{ url_for('course_results_dashboard') }}">Ver projeção /55 →</a></div>
+</div>
+<section class="panel">
+<div class="prenext-forms">
+{% for t in teams %}
+<form method="post" action="{{ url_for('admin_update_prenext',team_id=t.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<strong>Grupo {{ '%02d'|format(t.id) }} · {{ t.name }}</strong>
+<small class="muted">{{ t.stand }}</small>
+<label>Pontos do Pré-NEXT /40 <input type="number" name="points" min="0" max="40" step="0.01" value="{{ scores.get(t.id,'') }}" required></label>
+<button class="outline" type="submit">Salvar nota</button>
+</form>
+{% endfor %}
+</div>
+</section>
+{% endblock %}

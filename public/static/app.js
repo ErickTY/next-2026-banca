@@ -430,3 +430,45 @@ if(scanForm&&confirmForm){
     }
   });
 }
+
+
+// Coordenador de curso: quadro de classificação consolidada a cada 3s.
+const courseRankBody=document.querySelector('[data-course-ranking-body]');
+if(courseRankBody){
+  const fmt=value=>value===null||value===undefined?'—':Number(value).toFixed(2).replace('.',',');
+  const updateCourseRanking=async()=>{
+    const status=document.querySelector('[data-course-live-status]');
+    try{
+      const response=await fetch('/api/curso/resultados',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok||response.redirected)throw new Error('Conexão temporariamente indisponível');
+      const payload=await response.json();
+      const fragment=document.createDocumentFragment();
+      for(const t of payload.ranking){
+        const tr=document.createElement('tr');
+        tr.className=t.complete?'':(t.evaluation_count?'partial':'no-score');
+        const values=[
+          t.combined_rank?String(t.combined_rank)+'º':'—',
+          'Grupo '+String(t.team_id).padStart(2,'0')+' · '+t.name+' · '+t.stand,
+          t.pre_rank?String(t.pre_rank)+'º':'—',
+          t.pre_score===null?'—':fmt(t.pre_score)+' / 40',
+          t.next_average===null?'—':fmt(t.next_average)+' / 15',
+          t.total===null?'—':fmt(t.total)+' / 55',
+          t.evaluation_count+' / '+t.expected,
+          t.status
+        ];
+        for(const val of values){
+          const td=document.createElement('td');
+          td.textContent=val;
+          tr.appendChild(td);
+        }
+        fragment.appendChild(tr);
+      }
+      courseRankBody.replaceChildren(fragment);
+      if(status)status.textContent='Atualizado às '+new Date().toLocaleTimeString('pt-BR')+
+        ' · classificação provisória';
+    }catch(error){
+      if(status)status.textContent='Falha na atualização. Mantendo dados exibidos.';
+    }
+  };
+  window.setInterval(updateCourseRanking,3000);
+}

@@ -752,3 +752,63 @@ def test_erro_supabase_em_api_retorna_json_sem_refazer_consulta(module,monkeypat
     assert result.is_json
     assert result.json["setup_required"] is True
 
+
+
+def test_coordenador_curso_nao_gerencia_banca(module, monkeypatch):
+    from types import SimpleNamespace
+    coordinator=SimpleNamespace(id=25,username="coordenador.curso",role="course_coordinator",active=True)
+    monkeypatch.setattr(module,"get_user",lambda:coordinator)
+    client=module.app.test_client()
+    for url in ("/dashboard","/evaluate/1","/admin/results","/admin/prenext","/api/results","/admin/contingencia"):
+        assert client.get(url).status_code==403
+    client.get("/coordenador-curso")
+    with client.session_transaction() as sess:token=sess["csrf_token"]
+    assert client.post("/admin/timers/1/reset",data={"csrf_token":token,"reason":"tentativa sem permissao"}).status_code==403
+
+
+def test_ranking_pre_next_soma_somente_fichas_existentes(module,monkeypatch):
+    from types import SimpleNamespace
+    live={"ranking":[
+      {"team_id":1,"name":"Datacore","stand":"A22","average":12,"evaluations":2,"expected":4,"complete":False},
+      {"team_id":2,"name":"OutBox","stand":"A23","average":None,"evaluations":0,"expected":4,"complete":False}
+    ],"expected_judges":4}
+    monkeypatch.setattr(module,"build_ranking",lambda:live)
+    monkeypatch.setattr(module,"select",lambda table,*args,**kwargs:[
+      {"equipe_id":1,"pontos":36},{"equipe_id":2,"pontos":34}
+    ] if table=="banca_prenext" else [])
+    result=module.build_course_ranking()
+    first=result["ranking"][0]
+    second=result["ranking"][1]
+    assert first["pre_score"]==36
+    assert first["next_average"]==12
+    assert first["total"]==48
+    assert first["combined_rank"]==1
+    assert first["status"]=="Arena parcial"
+    assert second["total"] is None
+    assert second["combined_rank"] is None
+    assert result["official"] is False
+
+
+def test_acesso_coordenador_exige_senha_e_segue_para_ranking(module,monkeypatch):
+    from types import SimpleNamespace
+    from werkzeug.security import generate_password_hash
+    u=SimpleNamespace(id=22,username="coordenador.curso",role="course_coordinator",
+        password_hash=generate_password_hash("senha-test-course"),active=True,
+        locked_until=None,failed_attempts=0)
+    monkeypatch.setattr(module,"one",lambda table,**kwargs:u)
+    monkeypatch.setattr(module,"patch",lambda *args,**kwargs:None)
+    client=module.app.test_client()
+    page=client.get("/coordenador-curso").get_data(as_text=True)
+    assert "Ranking Pré-NEXT + NEXT" in page
+    with client.session_transaction() as sess:csrf=sess["csrf_token"]
+    bad=client.post("/login",data={"csrf_token":csrf,"username":"coordenador.curso","portal_role":"course"})
+    assert bad.status_code==401
+    good=client.post("/login",data={"csrf_token":csrf,"username":"coordenador.curso",
+                                  "portal_role":"course","password":"senha-test-course"})
+    assert good.status_code==302
+    assert "/curso/resultados" in good.headers["Location"]
+
+
+def test_admin_nao_exibe_gerenciar_avaliadores(module):
+    assert "Gerenciar avaliadores" not in module.app.jinja_loader.get_source(module.app.jinja_env,"dashboard.html")[0]
+    assert "Coordenador de Curso" in module.app.jinja_loader.get_source(module.app.jinja_env,"dashboard.html")[0]

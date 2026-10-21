@@ -265,3 +265,18 @@ form label.banca-judge-choice input[type=checkbox].banca-judge-checkbox:focus-vi
 
 /* Entrada dos avaliadores sem senha: único botão grande. */
 .banca-judge-start{display:flex;width:100%;justify-content:center;min-height:56px;font-size:16px;margin-top:8px}
+
+/* Painel e placar de consulta do Coordenador de Curso */
+.banca-role-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.course-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:18px 0}
+.course-actions form{margin:0}
+.course-access-panel .hint{margin-top:15px}
+.course-results-table td,.course-results-table th{white-space:nowrap}
+.course-results-table td:nth-child(2){white-space:normal;min-width:210px}
+.course-readonly-banner{background:#121c24;border:1px solid #34546a;border-radius:12px;padding:14px 18px;margin:17px 0;color:#b5d9ef}
+.course-results-meta{display:flex;gap:12px;flex-wrap:wrap;margin:19px 0}
+.course-results-meta span{border:1px solid #414959;border-radius:11px;padding:12px 17px;font-size:13px;color:#c5cbdd}
+.course-results-meta strong{color:#fff;font-size:18px}
+.prenext-forms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.prenext-forms form{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid #424655;border-radius:12px}
+@media(max-width:720px){.banca-role-tabs{grid-template-columns:1fr;gap:7px}.banca-role-tab{min-height:58px}.prenext-forms{grid-template-columns:1fr}.course-actions{align-items:stretch;flex-direction:column}.course-actions a,.course-actions button{width:100%;justify-content:center}}

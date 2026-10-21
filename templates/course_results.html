@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Coordenador de Curso · NEXT 2026{% endblock %}
+{% block content %}
+<div class="heading">
+  <div>
+    <div class="eyebrow">CHALLENGE DATEN · COORDENADOR DE CURSO</div>
+    <h1>Classificação <span class="pink">Pré-NEXT + NEXT</span></h1>
+    <p class="muted">Acompanhe a pontuação acumulada antes do evento e o desempenho de cada equipe na Arena Smart AI Vision.</p>
+  </div>
+  <div class="toolbar">
+    {% if current_user.role=='admin' %}<a class="outline" href="{{ url_for('dashboard') }}">← Coordenação</a><a class="outline" href="{{ url_for('admin_prenext') }}">Revisar Pré-NEXT</a>{% endif %}
+  </div>
+</div>
+<div class="course-results-meta">
+  <span><strong>40</strong> pontos · Pré-NEXT</span>
+  <span><strong>15</strong> pontos · NEXT (média da banca)</span>
+  <span><strong>55</strong> pontos · projeção total</span>
+</div>
+<div class="course-readonly-banner"><strong>Classificação provisória</strong> — critério ilustrativo: pontuação do Pré-NEXT (/40) + média ponderada da arena (/15). A posição final depende da conclusão das quatro avaliações de cada equipe e da homologação da Coordenação. Não há edição de notas neste painel.</div>
+<section class="panel results-panel">
+  <div class="sectiontitle">
+    <h2>Ranking consolidado <span class="pink">ao vivo</span></h2>
+    <span class="muted" data-course-live-status role="status" aria-live="polite">Atualização automática a cada 3 segundos</span>
+  </div>
+  <div class="results-scroller">
+    <table class="results-table course-results-table">
+      <thead><tr><th>Posição projetada</th><th>Grupo / estande</th><th>Posição Pré-NEXT</th><th>Pré-NEXT /40</th><th>Arena /15</th><th>Projeção /55</th><th>Fichas</th><th>Situação</th></tr></thead>
+      <tbody data-course-ranking-body>
+        {% for item in ranking %}
+        <tr class="{{ '' if item.complete else ('partial' if item.evaluation_count else 'no-score') }}">
+          <td>{{ (item.combined_rank ~ 'º') if item.combined_rank else '—' }}</td>
+          <td><strong>{{ item.name }}</strong><small>Grupo {{ '%02d'|format(item.team_id) }} · {{ item.stand }}</small></td>
+          <td>{{ (item.pre_rank ~ 'º') if item.pre_rank else '—' }}</td>
+          <td>{{ ('%.2f'|format(item.pre_score)|replace('.',',')) if item.pre_score is not none else '—' }} / 40</td>
+          <td>{{ ('%.2f'|format(item.next_average)|replace('.',',')) if item.next_average is not none else '—' }}</td>
+          <td><strong>{{ ('%.2f'|format(item.total)|replace('.',',')) if item.total is not none else '—' }}</strong></td>
+          <td>{{ item.evaluation_count }} / {{ item.expected }}</td>
+          <td>{{ item.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="results-footnote">Pré-NEXT: notas classificatórias de até 40 pontos. NEXT: média de C1 + C2 + C3, com bônus de 10% por uma câmera limitado a 15 pontos. A projeção /55 somente é exibida após ao menos uma ficha da arena. Empates têm a mesma posição. <strong>Este ranking não determina automaticamente a premiação.</strong></p>
+</section>
+{% endblock %}

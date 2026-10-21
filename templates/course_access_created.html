@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Acesso do Coordenador de Curso{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:660px;margin:32px auto">
+<div class="eyebrow">COORDENAÇÃO NEXT 2026 · ACESSO RESTRITO</div>
+<h1>Credenciais do <span class="pink">Coordenador de Curso</span></h1>
+<p class="muted">Senha gerada e exibida apenas nesta tela. Compartilhe diretamente com o coordenador.</p>
+<p><strong>Login:</strong> <code>{{ username }}</code></p>
+<p><strong>Senha:</strong> <code>{{ password }}</code></p>
+<p class="hint">O acesso permite somente consultar o Pré-NEXT e a classificação em tempo real. A senha anterior deixou de funcionar, se esta for uma redefinição.</p>
+<div class="course-actions"><a class="primary" href="{{ url_for('course_results_dashboard') }}">Ver ranking consolidado →</a><a class="outline" href="{{ url_for('dashboard') }}">Voltar</a></div>
+</section>
+{% endblock %}

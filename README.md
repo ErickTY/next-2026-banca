@@ -177,3 +177,13 @@ Os quatro avaliadores agora acessam sem senha: selecionam um único **checkbox**
 A **Coordenação / Scrum Master** segue exigindo senha em `/coordenacao`, com bloqueio de tentativas inválidas e proteções administrativas. A escolha de um nome de avaliador não desbloqueia recursos administrativos.
 
 **Atenção à integridade:** não há autenticação de identidade dos avaliadores sem senha. Qualquer pessoa que tenha acesso ao link pode selecionar outro avaliador e alterar suas notas. Compartilhe o endereço apenas com a banca e mantenha a coordenação monitorando a classificação. O banco Supabase deve estar ativo para o fluxo funcionar.
+
+## Coordenador de Curso · Pré-NEXT + NEXT (21/10/2026)
+
+Removida a seção Gerenciar avaliadores do dashboard. Nova área de Coordenador de Curso:
+- acesso com senha própria, criado pela Coordenação em `/dashboard`;
+- perfil `course_coordinator` exclusivamente de leitura (`/curso/resultados` e `/api/curso/resultados`);
+- nova tabela `banca_prenext`, /40, inicialmente com os valores de classificação [36, 34, 32, 31, 27, 26, 23, 23, 20] para grupos 1 a 9, respectivamente; editáveis exclusivamente pela Coordenação em `/admin/prenext`;
+- ranking provisório calculado como Pré-NEXT /40 + média da Arena /15, máximo 55; sem avaliações NEXT a posição combinada permanece em branco. A fórmula é uma projeção explicativa e exige homologação antes de premiar;
+- atualização automática de 3 em 3 segundos sem acesso para editar avaliações, cronômetros ou auditoria;
+- necessário executar a migração `supabase/migrations/20261021_coordenador_curso_prenext.sql` (já aplicada na organização NEXT 2026), nenhuma nota da banca foi modificada.

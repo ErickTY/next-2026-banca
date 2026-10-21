@@ -12,6 +12,7 @@ import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
@@ -374,7 +375,7 @@ def shared():
     # A tela inicial e suas rotas publicas devem abrir mesmo se o
     # Supabase estiver temporariamente pausado. So consultar a identidade
     # nas rotas que realmente exigem autenticacao.
-    public_portal = request.endpoint in ("root", "login", "portal_evaluator", "portal_coordinator")
+    public_portal = request.endpoint in ("root", "login", "portal_evaluator", "portal_coordinator", "portal_course")
     user = None if public_portal else get_user()
     return {"csrf_token": session["csrf_token"],
             "current_user": user,
@@ -389,6 +390,12 @@ def login_required(fn):
         if not u or not u.active or (u.role == "judge" and getattr(u, "username", None) not in JUDGE_IDENTITIES):
             session.clear()
             return redirect(url_for("login"))
+        # Perfil somente-leitura: nenhum outro endpoint nem formulário é
+        # acessível, mesmo que alguém tente chamá-lo diretamente pela URL.
+        if u.role == "course_coordinator" and request.endpoint not in (
+            "course_results_dashboard", "api_course_results", "logout"
+        ):
+            abort(403)
         return fn(*args, **kwargs)
     return wrapped
 
@@ -460,7 +467,8 @@ def login():
         usernames = request.form.getlist("username")
         portal_role = request.form.get("portal_role", "")
         is_admin_portal = portal_role in ("admin", "")
-        section = "coordenacao" if is_admin_portal else "avaliador"
+        is_course_portal = portal_role == "course"
+        section = "curso" if is_course_portal else ("coordenacao" if is_admin_portal else "avaliador")
         if len(usernames) != 1 or not usernames[0].strip():
             flash("Selecione somente um avaliador.", "error")
             return render_template("login.html", portal_section=section), 400
@@ -478,25 +486,30 @@ def login():
         is_admin = bool(
             is_admin_portal and u and u.username == username and u.role == "admin"
         )
-        locked = bool(is_admin and u.locked_until and u.locked_until > now())
+        is_course = bool(
+            is_course_portal and u and u.username == "coordenador.curso"
+            and username == "coordenador.curso" and u.role == "course_coordinator"
+        )
+        protected_role = is_admin or is_course
+        locked = bool(protected_role and u.locked_until and u.locked_until > now())
         valid = bool(
             u and u.active and not locked and (
                 is_judge or (
-                    is_admin and check_password_hash(
+                    protected_role and check_password_hash(
                         u.password_hash, request.form.get("password", "")
                     )
                 )
             )
         )
         if not valid:
-            if is_admin and not locked:
+            if protected_role and not locked:
                 fail = int(u.failed_attempts) + 1
                 values = {"falhas_login": 0, "bloqueado_ate": (now()+timedelta(minutes=10)).isoformat()} if fail >= 5 else {"falhas_login": fail}
                 patch("banca_usuarios", values, id=u.id)
             flash(
                 "Avaliador indisponível. Confira a seleção ou contate a coordenação."
-                if not is_admin_portal else
-                "Credenciais administrativas inválidas ou conta temporariamente bloqueada.",
+                if not (is_admin_portal or is_course_portal) else
+                "Senha inválida ou conta temporariamente bloqueada.",
                 "error"
             )
             return render_template("login.html", portal_section=section), 401
@@ -509,8 +522,12 @@ def login():
         session["uid"] = u.id
         session["csrf_token"] = secrets.token_urlsafe(32)
         session.permanent = True
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("course_results_dashboard") if is_course else url_for("dashboard"))
     return render_template("login.html", portal_section="avaliador")
+
+@app.get("/coordenador-curso")
+def portal_course():
+    return render_template("login.html", portal_section="curso")
 
 @app.get("/avaliador")
 def portal_evaluator():
@@ -613,6 +630,139 @@ def build_ranking():
 
     return {"ranking": rows, "expected_judges": expected,
             "updated_at": now().isoformat()}
+
+def build_course_ranking():
+    """Somar até 40 pontos do Pré-NEXT à média até 15 da arena.
+
+    A projeção 40+15 é EXPLÍCITA e PROVISÓRIA; a homologação depende
+    da coordenação. Nenhuma nota ausente é inventada.
+    """
+    live = build_ranking()
+    preliminary = {
+        int(v["equipe_id"]): Decimal(str(v["pontos"]))
+        for v in select("banca_prenext")
+    }
+    ordered_pre = sorted(preliminary.items(), key=lambda pair: (-pair[1], pair[0]))
+    preliminary_ranks = {}
+    last_points = None
+    current_pre_rank = None
+    for position, (team_id, points) in enumerate(ordered_pre, 1):
+        if last_points != points:
+            current_pre_rank = position
+        preliminary_ranks[team_id] = current_pre_rank
+        last_points = points
+    rows = []
+    for item in live["ranking"]:
+        base = preliminary.get(item["team_id"])
+        arena = item["average"]
+        total = (base + Decimal(str(arena))) if base is not None and arena is not None else None
+        rows.append({
+            "team_id": item["team_id"], "name": item["name"], "stand": item["stand"],
+            "pre_score": float(base) if base is not None else None,
+            "pre_rank": preliminary_ranks.get(item["team_id"]),
+            "next_average": arena,
+            "evaluation_count": item["evaluations"], "expected": item["expected"],
+            "complete": item["complete"], "total": float(total) if total is not None else None,
+            "combined_rank": None,
+            "status": "Aguardando arena" if arena is None else (
+                "4 fichas recebidas" if item["complete"] else "Arena parcial"
+            )
+        })
+    # Classificação total calculada somente para equipes que já receberam
+    # pelo menos uma avaliação do NEXT. Fichas pendentes ficam sem rank total.
+    rows.sort(key=lambda r: (r["total"] is None,
+                             -r["total"] if r["total"] is not None else 0,
+                             r["pre_rank"] or 999, r["team_id"]))
+    previous_total = None
+    previous_rank = None
+    for position, item in enumerate(rows, 1):
+        if item["total"] is not None:
+            if previous_total != item["total"]:
+                previous_rank = position
+            item["combined_rank"] = previous_rank
+            previous_total = item["total"]
+    return {"ranking": rows, "expected_judges": live["expected_judges"],
+            "updated_at": now().isoformat(), "max_pre":40, "max_next":15,
+            "max_total":55, "official":False}
+
+
+def course_view_required(fn):
+    @wraps(fn)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if get_user().role not in ("admin", "course_coordinator"):
+            abort(403)
+        return fn(*args, **kwargs)
+    return wrapped
+
+
+@app.get("/curso/resultados")
+@course_view_required
+def course_results_dashboard():
+    return render_template("course_results.html", **build_course_ranking())
+
+
+@app.get("/api/curso/resultados")
+@course_view_required
+def api_course_results():
+    response = jsonify(build_course_ranking())
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
+
+
+@app.post("/admin/curso/acesso")
+@admin_required
+def manage_course_access():
+    """Criar ou redefinir senha do perfil somente-leitura, sem afetar jurados."""
+    username = "coordenador.curso"
+    existing = one("banca_usuarios", username=username)
+    if existing and existing.role != "course_coordinator":
+        abort(409, "Este identificador já está ocupado por outro perfil.")
+    password = secrets.token_urlsafe(18)
+    values = {
+        "senha_hash":generate_password_hash(password),
+        "falhas_login":0, "bloqueado_ate":None, "ativo":True
+    }
+    if existing:
+        patch("banca_usuarios", values, id=existing.id)
+        log_event("course_coordinator_password_reset",detail=username)
+    else:
+        created = insert("banca_usuarios", {
+            **values, "username":username, "nome_exibicao":"Coordenador de Curso",
+            "papel":"course_coordinator"
+        })
+        log_event("course_coordinator_created",detail=username)
+    return render_template("course_access_created.html", username=username, password=password)
+
+
+@app.get("/admin/prenext")
+@admin_required
+def admin_prenext():
+    teams = [record(t) for t in select("banca_equipes",order="id.asc")]
+    scores = {int(row["equipe_id"]):row["pontos"] for row in select("banca_prenext")}
+    return render_template("admin_prenext.html", teams=teams, scores=scores)
+
+
+@app.post("/admin/prenext/<int:team_id>")
+@admin_required
+def admin_update_prenext(team_id):
+    if team_id not in range(1,10):
+        abort(404)
+    try:
+        points = Decimal(request.form.get("points","").replace(",","."))
+        if not points.is_finite() or points < 0 or points > 40 or points.as_tuple().exponent < -2:
+            raise InvalidOperation()
+    except (InvalidOperation, ValueError):
+        flash("Pontuação inválida. Informe um valor entre 0 e 40, com até duas casas.", "error")
+        return redirect(url_for("admin_prenext"))
+    if not one("banca_prenext",equipe_id=team_id):
+        insert("banca_prenext",{"equipe_id":team_id,"pontos":float(points)})
+    else:
+        patch("banca_prenext",{"pontos":float(points),"atualizado_em":now().isoformat()},equipe_id=team_id)
+    log_event("prenext_score_updated", team_id=team_id, detail=f"Novo valor: {points}/40")
+    flash("Nota do Pré-NEXT atualizada.", "success")
+    return redirect(url_for("admin_prenext"))
+
 
 @app.get("/admin/results")
 @admin_required
