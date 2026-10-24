@@ -180,7 +180,40 @@ function quickFormSignature(form){
   return [...d.entries()].map(([k,v])=>k+'='+v).join('&');
 }
 if(fastForm){
+  // Rascunho local por avaliador/equipe. Não substitui confirmação do banco.
+  const draftKey='next26:draft:v1:'+fastForm.dataset.draftKey;
+  const names=['A1','A2','A3','D1','D2','c1','c2','c3','used'];
+  const draftEnabled=fastForm.dataset.locked!=='true';
+  const keepDraft=()=>{
+    if(!draftEnabled)return;
+    try{
+      const chosen={};
+      for(const name of names){
+        const input=fastForm.querySelector('input[name="'+name+'"]:checked');
+        if(input)chosen[name]=input.value;
+      }
+      localStorage.setItem(draftKey,JSON.stringify({when:Date.now(),chosen}));
+    }catch(e){/* o navegador pode impedir storage */ }
+  };
+  if(draftEnabled)try{
+    const raw=localStorage.getItem(draftKey);
+    if(raw){
+      const saved=JSON.parse(raw);
+      if(saved?.chosen&&Date.now()-Number(saved.when)<72*60*60*1000){
+        const radios=[...fastForm.querySelectorAll('input[type="radio"]')];
+        for(const [key,val] of Object.entries(saved.chosen)){
+          if(!names.includes(key))continue;
+          const input=radios.find(el=>el.name===key&&el.value===val);
+          if(input)input.checked=true;
+        }
+        updateTotal();
+        if(quickSaveStatus)quickSaveStatus.textContent=
+          'Rascunho recuperado · ainda NÃO registrado no Supabase';
+      }else localStorage.removeItem(draftKey);
+    }
+  }catch(e){/* sem storage, formulário continua utilizável */ }
   fastForm.addEventListener('change',()=>{
+    keepDraft();
     updateTotal();
     if(savedSignature!==null&&quickFormSignature(fastForm)!==savedSignature){
       if(quickSaveStatus)quickSaveStatus.textContent='Alterações ainda não salvas';
@@ -217,10 +250,13 @@ if(fastForm){
       const data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok)throw Error(data.error||'Não foi possível salvar; tente novamente.');
       savedSignature=quickFormSignature(fastForm);
+       try{localStorage.removeItem(draftKey)}catch(e){}
       if(quickSaveStatus)quickSaveStatus.textContent='✓ Avaliação salva · '+new Date(data.saved_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       if(quickNext)quickNext.hidden=false;
     }catch(error){
-      if(quickSaveStatus)quickSaveStatus.textContent=error.message||'Erro de conexão. Tente novamente.';
+      keepDraft();
+       if(quickSaveStatus)quickSaveStatus.textContent=
+         'Sem confirmação de envio · rascunho guardado neste aparelho. Confira a conexão e tente salvar novamente.';
     }finally{
       saveInProgress=false;
       if(fastSaveButton){fastSaveButton.disabled=false;fastSaveButton.textContent='Salvar avaliação ✓';}

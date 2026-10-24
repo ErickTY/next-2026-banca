@@ -851,3 +851,17 @@ def test_dashboard_jurado_nao_baixa_notas_alheias(module,monkeypatch):
     assert r.status_code==200
     e=[q for q in queries if q[0]=="banca_avaliacoes"]
     assert len(e)==1 and e[0][1][0]["usuario_id"]=="eq.11"
+
+def test_rascunho_equipe_identificado_sem_rede(module,monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(module,"get_user",lambda:SimpleNamespace(
+        id=2,username="avaliador01",role="judge",active=True,display_name="DATEN"))
+    monkeypatch.setattr(module,"get_team",lambda n:SimpleNamespace(
+        id=n,name="Datacore",stand="A22",locked=False))
+    monkeypatch.setattr(module,"get_timer",lambda n:SimpleNamespace(
+        status="idle",elapsed_seconds=0,duration_seconds=300,started_at=None))
+    monkeypatch.setattr(module,"one",lambda *args,**kwargs:None)
+    response=module.app.test_client().get("/evaluate/1")
+    assert response.status_code==200
+    assert b'data-draft-key="avaliador01-1"' in response.data
+    assert b'data-locked="false"' in response.data

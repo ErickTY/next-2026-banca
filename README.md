@@ -187,3 +187,12 @@ Removida a seção Gerenciar avaliadores do dashboard. Nova área de Coordenador
 - ranking provisório calculado como Pré-NEXT /40 + média da Arena /15, máximo 55; sem avaliações NEXT a posição combinada permanece em branco. A fórmula é uma projeção explicativa e exige homologação antes de premiar;
 - atualização automática de 3 em 3 segundos sem acesso para editar avaliações, cronômetros ou auditoria;
 - necessário executar a migração `supabase/migrations/20261021_coordenador_curso_prenext.sql` (já aplicada na organização NEXT 2026), nenhuma nota da banca foi modificada.
+
+## Desempenho com Wi-Fi instável — 23/10/2026
+
+- Funções da Vercel em São Paulo (`gru1`), próximas ao Supabase (`sa-east-1`).
+- Consultas da ficha e do dashboard em paralelo, com cada avaliador carregando somente suas próprias avaliações.
+- HTML e JSON com gzip quando o navegador solicita; CSS/JS versionados com cache e conteúdo autenticado sem cache.
+- Cronômetro exibido localmente a cada segundo, com sincronização espaçada e intervalos maiores após erro. Ranking e cronômetro não geram requisições quando o navegador está em segundo plano.
+- Fichas guardam um **rascunho local** no aparelho por até 72 horas, associado ao perfil e à equipe. Só a resposta positiva do servidor confirma nota salva; o rascunho é apagado após essa resposta.
+- Nenhuma alteração nos dados históricos do Supabase, regras de cálculo ou contas.
