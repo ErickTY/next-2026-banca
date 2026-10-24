@@ -844,7 +844,7 @@ def test_dashboard_jurado_nao_baixa_notas_alheias(module,monkeypatch):
             return [{"id":1,"nome":"Datacore","estande":"A22","bloqueado":False}]
         if table=="banca_temporizadores":
             return [{"equipe_id":1,"estado":"idle","segundos_decorridos":0,
-                     "duracao_segundos":300,"iniciado_em":None}]
+                     "duracao_segundos":300,"iniciado_em":None,"versao":0}]
         return []
     monkeypatch.setattr(module,"select",fake_select)
     r=module.app.test_client().get("/dashboard")
@@ -859,7 +859,7 @@ def test_rascunho_equipe_identificado_sem_rede(module,monkeypatch):
     monkeypatch.setattr(module,"get_team",lambda n:SimpleNamespace(
         id=n,name="Datacore",stand="A22",locked=False))
     monkeypatch.setattr(module,"get_timer",lambda n:SimpleNamespace(
-        status="idle",elapsed_seconds=0,duration_seconds=300,started_at=None))
+        status="idle",elapsed_seconds=0,duration_seconds=300,started_at=None,version=0))
     monkeypatch.setattr(module,"one",lambda *args,**kwargs:None)
     response=module.app.test_client().get("/evaluate/1")
     assert response.status_code==200
