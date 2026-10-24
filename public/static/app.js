@@ -3,6 +3,11 @@ const teamEls=[...document.querySelectorAll('[data-timer]')];
 const pendingTimers=new Set();
 let lastState={timers:{},now:Date.now()};
 let timerEpoch=0;
+let timerPollActive=false;
+let timerPollErrors=0;
+const isTimerAdmin=!!document.querySelector('form[data-timer-control]');
+const slowConnection=!!(navigator.connection&&
+  (navigator.connection.saveData||/2g/.test(navigator.connection.effectiveType||'')));
 function labelStatus(s){return {idle:'Aguardando',running:'Em andamento',paused:'Pausado',finished:'Encerrado'}[s]||'—'}
 function pad(n){return String(Math.floor(n)).padStart(2,'0')}
 function displayRemaining(state){
@@ -35,11 +40,12 @@ for(const node of document.querySelectorAll('[data-timer-initial]')){
 }
 updateTimers();
 async function poll(){
-  if(!teamEls.length)return;
+  if(!teamEls.length||timerPollActive||document.hidden)return;
+  timerPollActive=true;
   const epoch=timerEpoch;
   try{
     const res=await fetch('/api/state',{credentials:'same-origin',cache:'no-store'});
-    if(!res.ok||res.redirected)return;
+    if(!res.ok||res.redirected)throw Error('Falha ao sincronizar');
     const data=await res.json();
     if(epoch!==timerEpoch)return;
     const diff=Date.now()-data.now;
@@ -49,9 +55,26 @@ async function poll(){
       lastState.timers[id]=t;
     }
     updateTimers();
-  }catch(e){/* tenta novamente na próxima consulta */ }
+    timerPollErrors=0;
+  }catch(e){
+    timerPollErrors=Math.min(3,timerPollErrors+1);
+  }finally{
+    timerPollActive=false;
+  }
 }
-if(teamEls.length){poll();setInterval(poll,2000);setInterval(updateTimers,250)}
+if(teamEls.length){
+  const scheduleTimer=()=>{
+    const base=slowConnection?12000:(isTimerAdmin?3000:7000);
+    const delay=Math.min(30000,base*2**timerPollErrors);
+    setTimeout(async()=>{if(!document.hidden)await poll();scheduleTimer()},delay);
+  };
+  void poll();
+  scheduleTimer();
+  setInterval(()=>{if(!document.hidden)updateTimers()},1000);
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden){updateTimers();void poll();}
+  });
+}
 
 // Somente coordenação: executar sem popup, reload nem notificação de sucesso.
 // O botão muda a tela instantaneamente enquanto o servidor persiste a ação.
@@ -274,6 +297,7 @@ document.querySelector('[data-copy-credentials]')?.addEventListener('click',asyn
 const rankingBody=document.querySelector('[data-ranking-body]');
 const rankingPreview=document.querySelector('[data-ranking-preview]');
 let rankingRequestActive=false;
+let rankingPollErrors=0;
 function formatAverage(value){
   return typeof value==='number'&&Number.isFinite(value) ? value.toFixed(2).replace('.',',') : '—';
 }
@@ -282,7 +306,7 @@ function rankCell(tr,selector,value){
   if(node)node.textContent=String(value);
 }
 async function pollRanking(){
-  if((!rankingBody&&!rankingPreview)||rankingRequestActive)return;
+  if((!rankingBody&&!rankingPreview)||rankingRequestActive||document.hidden)return;
   rankingRequestActive=true;
   const state=document.querySelector('[data-rank-connect]');
   try{
@@ -330,16 +354,23 @@ async function pollRanking(){
     rankCell(document,'[data-expected-judges]',data.expected_judges);
     const stamp=document.querySelector('[data-ranking-updated]');
     if(stamp)stamp.textContent='Atualizado às '+new Date(data.updated_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    if(state)state.textContent='Conectado · atualização a cada 3 segundos';
+    rankingPollErrors=0;
+    if(state)state.textContent='Conectado · sincronização automática';
   }catch(error){
-    if(state)state.textContent=error.message||'Falha de atualização. Tentando novamente...';
+    rankingPollErrors=Math.min(3,rankingPollErrors+1);
+    if(state)state.textContent=error.message||'Sem sinal · último ranking mantido';
   }finally{
     rankingRequestActive=false;
   }
 }
 if(rankingBody||rankingPreview){
-  pollRanking();
-  setInterval(pollRanking,3000);
+  const scheduleRanking=()=>{
+    const delay=Math.min(45000,(slowConnection?15000:8000)*2**rankingPollErrors);
+    setTimeout(async()=>{await pollRanking();scheduleRanking()},delay);
+  };
+  void pollRanking();
+  scheduleRanking();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void pollRanking()});
 }
 
 
@@ -436,7 +467,10 @@ if(scanForm&&confirmForm){
 const courseRankBody=document.querySelector('[data-course-ranking-body]');
 if(courseRankBody){
   const fmt=value=>value===null||value===undefined?'—':Number(value).toFixed(2).replace('.',',');
+  let courseActive=false,courseFailures=0;
   const updateCourseRanking=async()=>{
+    if(courseActive||document.hidden)return;
+    courseActive=true;
     const status=document.querySelector('[data-course-live-status]');
     try{
       const response=await fetch('/api/curso/resultados',{credentials:'same-origin',cache:'no-store'});
@@ -464,11 +498,19 @@ if(courseRankBody){
         fragment.appendChild(tr);
       }
       courseRankBody.replaceChildren(fragment);
+      courseFailures=0;
       if(status)status.textContent='Atualizado às '+new Date().toLocaleTimeString('pt-BR')+
         ' · classificação provisória';
     }catch(error){
-      if(status)status.textContent='Falha na atualização. Mantendo dados exibidos.';
-    }
+      courseFailures=Math.min(3,courseFailures+1);
+      if(status)status.textContent='Sem sinal · mantendo último resultado recebido.';
+    }finally{courseActive=false;}
   };
-  window.setInterval(updateCourseRanking,3000);
+  const scheduleCourse=()=>{
+    const delay=Math.min(45000,(slowConnection?15000:9000)*2**courseFailures);
+    setTimeout(async()=>{await updateCourseRanking();scheduleCourse()},delay);
+  };
+  void updateCourseRanking();
+  scheduleCourse();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void updateCourseRanking()});
 }
