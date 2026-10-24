@@ -5,6 +5,7 @@ As tabelas e funções são criadas pelo script supabase/schema.sql.
 from __future__ import annotations
 
 import csv
+import gzip
 import io
 import json
 import logging
@@ -14,6 +15,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -353,7 +355,24 @@ def security_headers(res):
     res.headers["X-Content-Type-Options"] = "nosniff"
     res.headers["X-Frame-Options"] = "DENY"
     res.headers["Referrer-Policy"] = "same-origin"
-    res.headers["Cache-Control"] = "no-store"
+    if request.path.startswith("/static/"):
+        # Assets públicos versionados ficam no cache do navegador.
+        res.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    else:
+        res.headers["Cache-Control"] = "no-store"
+    # HTML/JSON menores para 4G/5G e Wi-Fi congestionado.
+    if (request.method != "HEAD" and res.status_code in (200,400,503)
+        and not res.direct_passthrough
+        and res.mimetype in ("text/html","application/json")
+        and "gzip" in request.headers.get("Accept-Encoding","").lower()
+        and not res.headers.get("Content-Encoding")):
+        body=res.get_data()
+        if len(body)>1500:
+            compressed=gzip.compress(body,compresslevel=5,mtime=0)
+            if len(compressed)<len(body):
+                res.set_data(compressed)
+                res.headers["Content-Encoding"]="gzip"
+                res.headers["Vary"]="Accept-Encoding"
     res.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data:; style-src 'self'; "
         "script-src 'self'; connect-src 'self'; base-uri 'self'; "
@@ -552,22 +571,42 @@ def root():
 @login_required
 def dashboard():
     user = get_user()
-    teams = [record(x) for x in select("banca_equipes", order="id.asc")]
-    timers = {x["equipe_id"]: record(x) for x in select("banca_temporizadores")}
-    judges = official_judges()
-    allowed_ids = {u.id for u in judges}
-    evaluations = [record(x) for x in all_rows("banca_avaliacoes") if x["usuario_id"] in allowed_ids]
-    rows = []
-    for t in teams:
-        scores = [score(e) for e in evaluations if e.team_id == t.id]
-        own = next((e for e in evaluations if e.team_id == t.id and e.user_id == user.id), None)
-        if own:
-            own.total = raw_score(own)
-            own.adjusted_total = score(own)
-        rows.append({"team":t, "timer":timer_view(timers[t.id]), "count":len(scores),
-                     "average": round(sum(scores)/len(scores),2) if scores else None, "own":own})
-    return render_template("dashboard.html", rows=rows, judges=judges, user=user)
+    admin = user.role == "admin"
+    # Chamada única ao painel: dados independentes em paralelo.
+    # Jurados buscam só suas fichas, nunca notas de outros avaliadores.
+    with ThreadPoolExecutor(max_workers=4 if admin else 3) as pool:
+        team_future = pool.submit(select, "banca_equipes", order="id.asc")
+        timer_future = pool.submit(select, "banca_temporizadores")
+        judge_future = pool.submit(official_judges) if admin else None
+        evaluation_future = (pool.submit(all_rows, "banca_avaliacoes") if admin else
+            pool.submit(select,"banca_avaliacoes",{"usuario_id":"eq."+str(user.id)}))
+        teams = [record(x) for x in team_future.result()]
+        timers = {x["equipe_id"]:record(x) for x in timer_future.result()}
+        judges = judge_future.result() if judge_future else list(JUDGE_IDENTITIES)
+        allowed = {u.id for u in judges} if admin else {user.id}
+        evaluations = [record(x) for x in evaluation_future.result()
+                       if x["usuario_id"] in allowed]
 
+    by_team={}
+    own_by_team={}
+    for entry in evaluations:
+        by_team.setdefault(entry.team_id,[]).append(entry)
+        if entry.user_id==user.id:
+            own_by_team[entry.team_id]=entry
+
+    rows=[]
+    for team in teams:
+        group=by_team.get(team.id,[])
+        own=own_by_team.get(team.id)
+        if own:
+            own.total=raw_score(own)
+            own.adjusted_total=score(own)
+        values=[score(e) for e in group] if admin else []
+        rows.append({"team":team,"timer":timer_view(timers[team.id]),
+                     "count":len(group),
+                     "average":round(sum(values)/len(values),2) if values else None,
+                     "own":own})
+    return render_template("dashboard.html",rows=rows,judges=judges,user=user)
 
 def build_ranking():
     """Classificação provisória por média PONDERADA / 15, com empates reais.
@@ -780,8 +819,24 @@ def api_results():
 @app.route("/evaluate/<int:group>", methods=["GET", "POST"])
 @login_required
 def evaluate(group):
-    t = get_team(group)
     user = get_user()
+    # Ficha, cronômetro e equipe usam três consultas independentes.
+    if request.method == "GET":
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            team_future=pool.submit(get_team,group)
+            own_future=pool.submit(one,"banca_avaliacoes",
+                                   equipe_id=group,usuario_id=user.id)
+            timer_future=pool.submit(get_timer,group)
+            t=team_future.result()
+            existing=own_future.result()
+            timer=timer_future.result()
+        if existing:
+            existing.total=raw_score(existing)
+            existing.adjusted_total=score(existing)
+        return render_template("evaluate.html",team=t,evaluation=existing,
+                               obs=existing.observations if existing else {},
+                               timer=timer_view(timer),participants=PARTICIPANTS)
+    t=get_team(group)
     async_request = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     def invalid(message):
@@ -835,13 +890,7 @@ def evaluate(group):
         flash("Avaliação registrada.", "success")
         return redirect(url_for("dashboard"))
 
-    existing = one("banca_avaliacoes", equipe_id=group, usuario_id=user.id)
-    if existing:
-        existing.total = raw_score(existing)
-        existing.adjusted_total = score(existing)
-    return render_template("evaluate.html", team=t, evaluation=existing,
-                           obs=existing.observations if existing else {},
-                           timer=timer_view(get_timer(group)), participants=PARTICIPANTS)
+    return redirect(url_for("dashboard"))
 
 
 @app.get("/api/state")

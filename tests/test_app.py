@@ -812,3 +812,42 @@ def test_acesso_coordenador_exige_senha_e_segue_para_ranking(module,monkeypatch)
 def test_admin_nao_exibe_gerenciar_avaliadores(module):
     assert "Gerenciar avaliadores" not in module.app.jinja_loader.get_source(module.app.jinja_env,"dashboard.html")[0]
     assert "Coordenador de Curso" in module.app.jinja_loader.get_source(module.app.jinja_env,"dashboard.html")[0]
+
+
+def test_cache_estatico_com_fichas_privadas(module):
+    client=module.app.test_client()
+    css=client.get("/static/style.css")
+    assert css.status_code==200
+    assert "public" in css.headers["Cache-Control"]
+    login=client.get("/login")
+    assert login.headers["Cache-Control"]=="no-store"
+
+
+def test_login_com_gzip_mantem_segurança(module):
+    import gzip
+    client=module.app.test_client()
+    res=client.get("/login",headers={"Accept-Encoding":"gzip"})
+    assert res.status_code==200
+    assert res.headers["Content-Encoding"]=="gzip"
+    assert b"Scrum Master" in gzip.decompress(res.data)
+    assert res.headers["Cache-Control"]=="no-store"
+
+
+def test_dashboard_jurado_nao_baixa_notas_alheias(module,monkeypatch):
+    from types import SimpleNamespace
+    u=SimpleNamespace(id=11,username="avaliador01",role="judge",active=True,display_name="DATEN")
+    monkeypatch.setattr(module,"get_user",lambda:u)
+    queries=[]
+    def fake_select(table,*args,**kwargs):
+        queries.append((table,args))
+        if table=="banca_equipes":
+            return [{"id":1,"nome":"Datacore","estande":"A22","bloqueado":False}]
+        if table=="banca_temporizadores":
+            return [{"equipe_id":1,"estado":"idle","segundos_decorridos":0,
+                     "duracao_segundos":300,"iniciado_em":None}]
+        return []
+    monkeypatch.setattr(module,"select",fake_select)
+    r=module.app.test_client().get("/dashboard")
+    assert r.status_code==200
+    e=[q for q in queries if q[0]=="banca_avaliacoes"]
+    assert len(e)==1 and e[0][1][0]["usuario_id"]=="eq.11"

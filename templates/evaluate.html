@@ -17,6 +17,7 @@
 </div>
 {% if team.locked %}<div class="flash error">A coordenação bloqueou a edição das avaliações deste grupo. Registro disponível apenas para consulta.</div>{% endif %}
 <form id="fast-evaluate" class="fast-eval" action="{{ url_for('evaluate',group=team.id) }}" method="post"
+      data-draft-key="{{ current_user.username }}-{{ team.id }}" data-locked="{{ 'true' if team.locked else 'false' }}"
       data-next-url="{{ url_for('evaluate',group=team.id+1) if team.id < 9 else url_for('dashboard') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="fast-eval-grid">
